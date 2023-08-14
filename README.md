@@ -1,5 +1,5 @@
 # Zooplankton-Pytorch (Julia's version)
-Note: file copiied from https://github.com/illinijeff/zooml.git
+Note: file copied from https://github.com/illinijeff/zooml.git
 
 ## Setup
 
