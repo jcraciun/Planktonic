@@ -212,7 +212,7 @@ def main():
         # save model
             if yaml_args["save_only_best_model"]:
                 if valid_epoch_loss > max(valid_loss):
-                    print(epoch+1, "is the new best model. Saving to file.")
+                    print("Epoch", epoch+1, "is the new best model. Saving to file.")
                     torch.save(model.state_dict(), os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(epoch+1)))
             else:
                 torch.save(model.state_dict(), os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(epoch+1)))
