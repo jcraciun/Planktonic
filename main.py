@@ -6,6 +6,7 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from models.set_model import set_model
 from load_plankton.create_dataloader import split_and_load
+from load_plankton.utils import EarlyStopping
 import yaml
 import numpy as np
 from sklearn.metrics import classification_report, confusion_matrix, balanced_accuracy_score
@@ -13,10 +14,7 @@ import numpy as np
 import shutil
 import ast
 
-
-# TO DO: EARLY STOPPING 
-# TO DO: UPDATE COMMENTS 
-def train(model, trainloader, criterion, optimizer, epoch, include_metadata, save_model, save_directory = None, detect_anomaly = False):
+def train(model, trainloader, criterion, optimizer, epoch, include_metadata, detect_anomaly = False):
     if save_model:
         if not isinstance(save_directory, str):
             raise Exception("save_model is set to True but no directory specified or directory not inputted as string.")
@@ -53,16 +51,10 @@ def train(model, trainloader, criterion, optimizer, epoch, include_metadata, sav
         loss.backward()
         # Update the weights.
         optimizer.step()
-    if save_model:
-        state = {'epoch': epoch + 1, 'state_dict': model.state_dict(),
-                 'optimizer': optimizer.state_dict(), 'losslogger': loss.item(), }
-        # TO DO: ONLY SAVE IF BETTER MODEL
-        torch.save(model.state_dict(), os.path.join(save_directory, 'epoch-{}.pth'.format(epoch+1)))
-    
     # Loss and accuracy for the complete epoch.
     epoch_loss = train_running_loss / counter
     epoch_acc = 100. * (train_running_correct / len(trainloader.dataset))
-    return epoch_loss, epoch_acc
+    return epoch_loss, epoch_acc, loss
 
 def validate(model, testloader, criterion, optimizer, epoch, include_metadata):
     model.eval()
@@ -162,15 +154,16 @@ def main():
     with open('output.yaml', 'r') as file:
         yaml_args = yaml.safe_load(file)
     
-    print(yaml_args["comb_method"])
-    if yaml_args["comb_method"] == "metablock":
-        comb_config = (yaml_args["comb_config"], len(yaml_args["meta_columns"]))
-    elif yaml_args["comb_method"] == "metanet":
-        config = ast.literal_eval(yaml_args["comb_config"])
-        comb_config = (len(yaml_args["meta_columns"]), config[0], config[1])
-    elif yaml_args["comb_method"] == "concat":
-        comb_config = (len(yaml_args["meta_columns"]))
+    if yaml_args["include_metadata"]:
+        if yaml_args["comb_method"] == "metablock":
+            comb_config = (yaml_args["comb_config"], len(yaml_args["meta_columns"]))
+        elif yaml_args["comb_method"] == "metanet":
+            config = ast.literal_eval(yaml_args["comb_config"])
+            comb_config = (len(yaml_args["meta_columns"]), config[0], config[1])
+        elif yaml_args["comb_method"] == "concat":
+            comb_config = (len(yaml_args["meta_columns"]))
     else:
+        print("Selected to not include metadata. Changing any comb_config and comb_method input to None.")
         comb_config = None
         yaml_args["comb_method"] = None
 
@@ -192,6 +185,10 @@ def main():
     if yaml_args["run_type"] == "train":
         criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=yaml_args["adam_learning_rate"])
+
+        if yaml_args["early_stopper"]:
+            early_stopper = EarlyStopping(patience=yaml_args["es_patience"], delta = yaml_args["es_min_delta"])
+
         model.to('cuda')
         num_epochs = yaml_args["num_epochs"]
 
@@ -199,9 +196,27 @@ def main():
         train_acc, valid_acc = [], []
 
         for epoch in range(num_epochs):
-            train_epoch_loss, train_epoch_acc = train(model, train_dataloader, criterion, optimizer, 
-                                                    epoch, yaml_args["include_metadata"], True, yaml_args["path_to_save_epochs"])
+            if yaml_args["early_stopper"] and early_stopper.should_stop():
+                print(
+                    f"Validation has not improved over {early_stopper.count}"
+                    f" epochs (including previous runs). Early stopping..."
+                )
+                break
+            # third loss argument for model-saving purposes
+            train_epoch_loss, train_epoch_acc, loss = train(model, train_dataloader, criterion, optimizer, 
+                                                    epoch, yaml_args["include_metadata"])
             valid_epoch_loss, valid_epoch_acc = validate(model, val_dataloader, criterion, optimizer, epoch, yaml_args["include_metadata"])
+        if yaml_args["save_model"]:
+            state = {'epoch': epoch + 1, 'state_dict': model.state_dict(),
+                     'optimizer': optimizer.state_dict(), 'losslogger': loss.item(), }
+        # save model
+            if yaml_args["save_only_best_model"]:
+                if valid_epoch_loss > max(valid_loss):
+                    print(epoch+1, "is the new best model. Saving to file.")
+                    torch.save(model.state_dict(), os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(epoch+1)))
+            else:
+                torch.save(model.state_dict(), os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(epoch+1)))
+    
             train_loss.append(train_epoch_loss)
             valid_loss.append(valid_epoch_loss)
             train_acc.append(train_epoch_acc)

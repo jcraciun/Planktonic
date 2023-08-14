@@ -16,9 +16,14 @@ batch_size: 32
 neurons_reducer_block: 256
 adam_learning_rate: .0008
 num_epochs: 10
+save_model: True
+save_only_best_model: True
+early_stopper: True
+es_patience: 3
+es_min_delta: 0
 
 #### METADATA CONFIGS ################################################################################
-include_metadata: True
+include_metadata: False
 metadata_csv: 'mini_extended.csv'
 meta_image_name_column: 'Image' # name of column in csv that references the image titles (NOTE: file type at end assumed for all rows (e.g. .jpg/.png))
 comb_method: 'metanet' # options: None, metanet, metablock, concat
