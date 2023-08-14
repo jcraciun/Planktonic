@@ -15,12 +15,6 @@ import shutil
 import ast
 
 def train(model, trainloader, criterion, optimizer, epoch, include_metadata, detect_anomaly = False):
-    if save_model:
-        if not isinstance(save_directory, str):
-            raise Exception("save_model is set to True but no directory specified or directory not inputted as string.")
-        if not os.path.exists(save_directory):
-            print("Save directory does not exist. Creating a directory at inputted path.")
-            os.makedirs(save_directory)
     model.train()
     torch.autograd.set_detect_anomaly(detect_anomaly)
     print('Training')
@@ -153,6 +147,13 @@ def main():
     print("Parsing config.yml.")
     with open('output.yaml', 'r') as file:
         yaml_args = yaml.safe_load(file)
+
+    if yaml_args["save_model"]:
+        if not isinstance(yaml_args["path_to_save_epochs"], str):
+            raise Exception("save_model is set to True but no directory specified or directory not inputted as string.")
+        if not os.path.exists(yaml_args["path_to_save_epochs"]):
+            print("Save directory does not exist. Creating a directory at inputted path.")
+            os.makedirs(yaml_args["path_to_save_epochs"])
     
     if yaml_args["include_metadata"]:
         if yaml_args["comb_method"] == "metablock":
