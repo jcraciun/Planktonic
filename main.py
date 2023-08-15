@@ -144,6 +144,7 @@ def forward_infer(model, save_file_path, image_directory_path, dataloader, class
                     shutil.copy(source_file, destination_directory)
 
 def main():
+    # TO DO: DIFFERENT .YML INPUTS 
     print("Parsing config.yml.")
     with open('output.yaml', 'r') as file:
         yaml_args = yaml.safe_load(file)
