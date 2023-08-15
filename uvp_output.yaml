@@ -2,14 +2,14 @@
 run_type: train # options: train, test, forward_infer
 
 #### FILE CONFIGS ################################################################################
-path_to_image_folder: '/home/ellen/datasets/suave_combined'
-path_to_save_epochs: '/home/ellen/Planktonic/suave_trial'
+path_to_image_folder: '/home/ellen/datasets/UVP5_processed_sep_2021_depadded'
+path_to_save_epochs: '/home/ellen/Planktonic/trial_run'
 path_to_load_model: '/mnt/c/Users/Julia/Documents/NIWC/Planktonic/tensorflow_setup/trial_run/epoch-2.pth'
 path_to_copy_infer_images: '/Users/Julia/Documents/NIWC/Planktonic/tensorflow_setup/trial_infer'
 
 #### MODEL CONFIGS ################################################################################
 model: 'vit'
-num_classes: 2
+num_classes: 42
 p_dropout: .6
 train_proportion: .8
 batch_size: 32
