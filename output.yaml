@@ -2,20 +2,20 @@
 run_type: train # options: train, test, forward_infer
 
 #### FILE CONFIGS ################################################################################
-path_to_image_folder: '/mnt/c/Users/Julia/Documents/NIWC/Planktonic/tiny_depadded_no_marks'
-path_to_save_epochs: '/mnt/c/Users/Julia/Documents/NIWC/Planktonic/tensorflow_setup/trial_run'
+path_to_image_folder: '/home/ellen/datasets/UVP5_processed_sep_2021_depadded'
+path_to_save_epochs: '/home/ellen/Planktonic/trial_run'
 path_to_load_model: '/mnt/c/Users/Julia/Documents/NIWC/Planktonic/tensorflow_setup/trial_run/epoch-2.pth'
-path_to_copy_infer_images: '/mnt/c/Users/Julia/Documents/NIWC/Planktonic/tensorflow_setup/trial_infer'
+path_to_copy_infer_images: '/Users/Julia/Documents/NIWC/Planktonic/tensorflow_setup/trial_infer'
 
 #### MODEL CONFIGS ################################################################################
-model: 'gmtNet'
-num_classes: 9
+model: 'vit'
+num_classes: 42
 p_dropout: .6
 train_proportion: .8
 batch_size: 32
-neurons_reducer_block: 256
+neurons_reducer_block: 256 
 adam_learning_rate: .0008
-num_epochs: 10
+num_epochs: 50
 save_model: True
 save_only_best_model: True
 early_stopper: True
