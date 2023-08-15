@@ -208,26 +208,26 @@ def main():
             train_epoch_loss, train_epoch_acc, loss = train(model, train_dataloader, criterion, optimizer, 
                                                     epoch, yaml_args["include_metadata"])
             valid_epoch_loss, valid_epoch_acc = validate(model, val_dataloader, criterion, optimizer, epoch, yaml_args["include_metadata"])
-        if yaml_args["save_model"]:
-            state = {'epoch': epoch + 1, 'state_dict': model.state_dict(),
-                     'optimizer': optimizer.state_dict(), 'losslogger': loss.item(), }
-        # save model
-            if yaml_args["save_only_best_model"]:
-                if valid_epoch_loss > max(valid_loss):
-                    print("Epoch", epoch+1, "is the new best model. Saving to file.")
-                    torch.save(model.state_dict(), os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(epoch+1)))
-            else:
-                torch.save(model.state_dict(), os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(epoch+1)))
-    
             train_loss.append(train_epoch_loss)
             valid_loss.append(valid_epoch_loss)
             train_acc.append(train_epoch_acc)
             valid_acc.append(valid_epoch_acc)
-        
             print("Epoch: ", epoch)    
             print(f"Training loss: {train_epoch_loss:.3f}, training acc: {train_epoch_acc:.3f}")
             print(f"Validation loss: {valid_epoch_loss:.3f}, validation acc: {valid_epoch_acc:.3f}")
             print('-'*50)
+            
+            if yaml_args["save_model"]:
+                state = {'epoch': epoch + 1, 'state_dict': model.state_dict(),
+                        'optimizer': optimizer.state_dict(), 'losslogger': loss.item(), }
+            # save model
+                if yaml_args["save_only_best_model"]:
+                    if valid_epoch_loss > max(valid_loss):
+                        print("Epoch", epoch+1, "is the new best model. Saving to file.")
+                        torch.save(model.state_dict(), os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(epoch+1)))
+                else:
+                    torch.save(model.state_dict(), os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(epoch+1)))
+        
 
     elif yaml_args["run_type"] == "test":
         print("Testing")
