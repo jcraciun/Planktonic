@@ -13,6 +13,7 @@ from sklearn.metrics import classification_report, confusion_matrix, balanced_ac
 import numpy as np
 import shutil
 import ast
+import sys
 
 def train(model, trainloader, criterion, optimizer, epoch, include_metadata, detect_anomaly = False):
     model.train()
@@ -102,7 +103,7 @@ def test(model, save_file_path, test_dataloader, classes, include_metadata=False
             labels = labels.data.cpu().numpy()
             y_true.extend(labels) # Save Truth
     
-
+    print("If cf_matrix produces a shape error, ensure that all the files in the image directory pertain to a class within the dataloader.")
     cf_matrix = confusion_matrix(y_true, y_pred)
     df_cm = pd.DataFrame(cf_matrix / np.sum(cf_matrix, axis=1)[:, None], index = [i for i in classes],
                      columns = [i for i in classes])
@@ -144,9 +145,10 @@ def forward_infer(model, save_file_path, image_directory_path, dataloader, class
                     shutil.copy(source_file, destination_directory)
 
 def main():
-    # TO DO: DIFFERENT .YML INPUTS 
-    print("Parsing config.yml.")
-    with open('output.yaml', 'r') as file:
+    filename = sys.argv[1]
+
+    print("Parsing", filename)
+    with open(filename, 'r') as file:
         yaml_args = yaml.safe_load(file)
 
     if yaml_args["save_model"]:
@@ -203,6 +205,9 @@ def main():
                     f"Validation has not improved over {early_stopper.count}"
                     f" epochs (including previous runs). Early stopping..."
                 )
+                best_epoch_path = os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(epoch+1))
+                test(model, os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(best_epoch)), test_dataloader, 
+                     classes, include_metadata=yaml_args["include_metadata"])
                 break
             # third loss argument for model-saving purposes
             train_epoch_loss, train_epoch_acc, loss = train(model, train_dataloader, criterion, optimizer, 
@@ -222,7 +227,10 @@ def main():
                         'optimizer': optimizer.state_dict(), 'losslogger': loss.item(), }
             # save model
                 if yaml_args["save_only_best_model"]:
-                    if valid_epoch_loss > max(valid_loss):
+                    if epoch == 0:
+                        torch.save(model.state_dict(), os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(epoch+1)))
+                    if valid_epoch_loss < min(valid_loss):
+                        best_epoch = epoch + 1
                         print("Epoch", epoch+1, "is the new best model. Saving to file.")
                         torch.save(model.state_dict(), os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(epoch+1)))
                 else:
