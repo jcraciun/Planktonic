@@ -191,14 +191,6 @@ def main():
     model, img_transforms = set_model(model_name = yaml_args["model"], num_class = yaml_args["num_classes"], p_dropout = yaml_args["p_dropout"], 
                                                 comb_method = yaml_args["comb_method"], comb_config = comb_config, neurons_reducer_block = yaml_args["neurons_reducer_block"])
     
-
-# save model to pickle file 
-    #print("Saving model params to pickle file.")
-    #model_pkl_file = "trial_" + yaml_args["trial_id"] + ".pkl"  
-    #with open(os.path.join(yaml_args["path_to_save_model"], model_pkl_file), 'wb') as file: 
-    #    pickle.dump(model, file)
-
-
     classes = os.listdir(yaml_args["path_to_image_folder"])
     print("Creating dataloaders.")
 
