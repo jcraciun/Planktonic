@@ -14,6 +14,7 @@ import numpy as np
 import shutil
 import ast
 import sys
+import pickle
 
 def train(model, trainloader, criterion, optimizer, epoch, include_metadata, detect_anomaly = False):
     model.train()
@@ -24,6 +25,7 @@ def train(model, trainloader, criterion, optimizer, epoch, include_metadata, det
     counter = 0
     for batch, data in tqdm(enumerate(trainloader), total=len(trainloader)):
         image, labels, metadata_batch, _ = data
+        # metadata inclusion 
         if include_metadata:
             metadata_batch = metadata_batch.to('cuda')
             metadata_batch = metadata_batch.float()
@@ -145,18 +147,31 @@ def forward_infer(model, save_file_path, image_directory_path, dataloader, class
                     shutil.copy(source_file, destination_directory)
 
 def main():
+    # allowing for any .yaml input 
     filename = sys.argv[1]
 
     print("Parsing", filename)
     with open(filename, 'r') as file:
         yaml_args = yaml.safe_load(file)
 
+    # save model arguments 
     if yaml_args["save_model"]:
-        if not isinstance(yaml_args["path_to_save_epochs"], str):
-            raise Exception("save_model is set to True but no directory specified or directory not inputted as string.")
-        if not os.path.exists(yaml_args["path_to_save_epochs"]):
-            print("Save directory does not exist. Creating a directory at inputted path.")
-            os.makedirs(yaml_args["path_to_save_epochs"])
+        if yaml_args["path_to_save_epochs"] == "":
+              print("No directory specified, making a new one with the given trial ID.")
+              path = os.path.join(os.getcwd(), str(yaml_args["trial_id"]))
+              if (os.path.exists(path)):
+                  raise Exception("The directory to save this model already exists. Give the .yaml file a new trial_id to avoid overriding old results.")
+              else:
+                  print("Making directory at:", path)
+                  os.makedirs(os.path.join(os.getcwd(), str(yaml_args["trial_id"])))
+                  yaml_args["path_to_save_epochs"] = os.path.join(os.getcwd(), str(yaml_args["trial_id"]))
+        else:
+            if not isinstance(yaml_args["path_to_save_epochs"], str):
+                raise Exception("save_model is set to True but no directory specified or directory not inputted as string.")
+            if not os.path.exists(yaml_args["path_to_save_epochs"]):
+                print("Save directory does not exist. Creating a directory at inputted path.")
+                os.makedirs(yaml_args["path_to_save_epochs"])
+    
     
     if yaml_args["include_metadata"]:
         if yaml_args["comb_method"] == "metablock":
@@ -176,6 +191,14 @@ def main():
     model, img_transforms = set_model(model_name = yaml_args["model"], num_class = yaml_args["num_classes"], p_dropout = yaml_args["p_dropout"], 
                                                 comb_method = yaml_args["comb_method"], comb_config = comb_config, neurons_reducer_block = yaml_args["neurons_reducer_block"])
     
+
+# save model to pickle file 
+    #print("Saving model params to pickle file.")
+    #model_pkl_file = "trial_" + yaml_args["trial_id"] + ".pkl"  
+    #with open(os.path.join(yaml_args["path_to_save_model"], model_pkl_file), 'wb') as file: 
+    #    pickle.dump(model, file)
+
+
     classes = os.listdir(yaml_args["path_to_image_folder"])
     print("Creating dataloaders.")
 
@@ -186,6 +209,7 @@ def main():
     else:
         train_dataloader, test_dataloader, val_dataloader = split_and_load(yaml_args, img_transforms)
 
+    # train 
     if yaml_args["run_type"] == "train":
         criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=yaml_args["adam_learning_rate"])
@@ -200,18 +224,21 @@ def main():
         train_acc, valid_acc = [], []
 
         for epoch in range(num_epochs):
+            # early stopper activated 
             if yaml_args["early_stopper"] and early_stopper.should_stop():
                 print(
                     f"Validation has not improved over {early_stopper.count}"
                     f" epochs (including previous runs). Early stopping..."
                 )
+                # run test 
                 best_epoch_path = os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(epoch+1))
                 test(model, os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(best_epoch)), test_dataloader, 
                      classes, include_metadata=yaml_args["include_metadata"])
                 break
-            # third loss argument for model-saving purposes
+            # train (third loss argument for model-saving purposes)
             train_epoch_loss, train_epoch_acc, loss = train(model, train_dataloader, criterion, optimizer, 
                                                     epoch, yaml_args["include_metadata"])
+            # validate 
             valid_epoch_loss, valid_epoch_acc = validate(model, val_dataloader, criterion, optimizer, epoch, yaml_args["include_metadata"])
             train_loss.append(train_epoch_loss)
             valid_loss.append(valid_epoch_loss)
@@ -222,21 +249,29 @@ def main():
             print(f"Validation loss: {valid_epoch_loss:.3f}, validation acc: {valid_epoch_acc:.3f}")
             print('-'*50)
             
+            # save model 
+            if yaml_args["early_stopper"]:
+                early_stopper.step(valid_epoch_loss)
+
             if yaml_args["save_model"]:
                 state = {'epoch': epoch + 1, 'state_dict': model.state_dict(),
                         'optimizer': optimizer.state_dict(), 'losslogger': loss.item(), }
-            # save model
                 if yaml_args["save_only_best_model"]:
                     if epoch == 0:
                         torch.save(model.state_dict(), os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(epoch+1)))
-                    if valid_epoch_loss < min(valid_loss):
+                    t = min(valid_loss)
+                    print(t)
+                    print(valid_epoch_loss)
+                    print(print(type(t)))    
+                    print(valid_epoch_loss <= min(valid_loss))
+                    if valid_epoch_loss <= min(valid_loss):
                         best_epoch = epoch + 1
                         print("Epoch", epoch+1, "is the new best model. Saving to file.")
                         torch.save(model.state_dict(), os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(epoch+1)))
                 else:
                     torch.save(model.state_dict(), os.path.join(yaml_args["path_to_save_epochs"], 'epoch-{}.pth'.format(epoch+1)))
         
-
+    # pure testing 
     elif yaml_args["run_type"] == "test":
         print("Testing")
         test(model, yaml_args["path_to_load_model"], test_dataloader, classes, include_metadata=yaml_args["include_metadata"])
