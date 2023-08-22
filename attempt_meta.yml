@@ -30,7 +30,7 @@ path_to_load_model: '/mnt/c/Users/Julia/Documents/NIWC/Planktonic/tensorflow_set
 path_to_copy_infer_images: '/Users/Julia/Documents/NIWC/Planktonic/tensorflow_setup/trial_infer'
 
 #### METADATA CONFIGS ################################################################################
-include_metadata: False
+include_metadata: True
 metadata_csv: 'mini_extended.csv'
 meta_image_name_column: 'Image' # name of column in csv that references the image titles (NOTE: file type at end assumed for all rows (e.g. .jpg/.png))
 comb_method: 'metanet' # options: None, metanet, metablock, concat
