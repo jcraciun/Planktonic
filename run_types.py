@@ -200,9 +200,8 @@ def test(model, save_file_path, testloader, classes, save_plot_path, include_met
 
     plt.subplot(233)  # Adjust the subplot arrangement
     plt.title("Scores")
-    plt.text(0.5, 0.5, scores, horizontalalignment='center', verticalalignment='center', fontsize=12)
-    plt.axis('off')
-    plt.tight_layout()
+    plt.table(cellText=scores.values, colLabels=['Score'], rowLabels=scores.index, loc='center')
+    plt.axis('off')  # Turn off the axis
 
     # Balanced Accuracy Score
     plt.subplot(212)  # Adjust the subplot arrangement
