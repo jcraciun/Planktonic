@@ -1,3 +1,8 @@
+"""
+Majority of code written by André Pacheco (pacheco.comp@gmail.com). 
+https://github.com/lmlima/BRACIS2022-Exploring-Advances-for-SLD/tree/main
+"""
+
 from models import VIT
 from models import gmtNet
 from models import effNet
@@ -7,7 +12,6 @@ import torchvision.transforms as transforms
 from efficientnet_pytorch import EfficientNet
 
 
-# TO DO: ADD EFFICENT-NET B7
 def set_model (model_name, num_class, neurons_reducer_block=0, comb_method=None, comb_config=None, pretrained=True,
          freeze_conv=True, p_dropout=0.5):
 
@@ -45,6 +49,16 @@ def set_model (model_name, num_class, neurons_reducer_block=0, comb_method=None,
                          comb_method=comb_method, comb_config=comb_config)
         model_transforms = transforms.Compose([
             utils.PadCenterCrop((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225])
+    ])
+
+    if model_name == 'efficientnet-b4':
+        model = effNet.MyEffnet(EfficientNet.from_pretrained(model_name), num_class, neurons_reducer_block, freeze_conv,
+                         comb_method=comb_method, comb_config=comb_config)
+        model_transforms = transforms.Compose([
+            utils.PadCenterCrop((380, 380)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])

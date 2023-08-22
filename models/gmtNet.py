@@ -1,3 +1,7 @@
+"""
+Majority of code written by Jeff Ellen (ellen@spawar.navy.mil). 
+"""
+
 import torch
 from torch import nn
 from models import MetaBlock
@@ -130,12 +134,3 @@ class gmtNet(nn.Module):
         out = self.fc(out)
         return out
         
-    
-
-    def get_trainable_params(self, finetune):
-        if finetune:
-            return self.parameters()
-        else:
-            # This might not work if used_metadata length varies
-            # between old and new models
-            return self.fc[0].parameters()

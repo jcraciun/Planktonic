@@ -5,6 +5,7 @@ channels:
   - defaults
 dependencies:
   - python==3.9.17
+  - efficientnet-pytorch
   - _anaconda_depends=2023.07=py39_0
   - _libgcc_mutex=0.1=main
   - _openmp_mutex=5.1=1_gnu

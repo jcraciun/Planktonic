@@ -1,6 +1,9 @@
 import torchvision.transforms.functional as F
 from tqdm import tqdm 
 import numpy as np
+import os 
+import matplotlib.pyplot as plt
+import pandas as pd 
 
 class PadCenterCrop(object):
     def __init__(self, size, pad_if_needed=True, fill=255, padding_mode='constant'):
@@ -25,6 +28,9 @@ class PadCenterCrop(object):
 
 
 class EarlyStopping:
+    """
+    Code written by Jeff Ellen (ellen@spawar.navy.mil). 
+    """
     """Early stops the training if validation loss doesn't improve after a given patience.
 
     Args:
@@ -45,7 +51,7 @@ class EarlyStopping:
 
     def step(self, val_loss):
         if self.best_val_loss is None or self.best_val_loss - val_loss > self.delta:
-            if self.best_val_loss is not None and self.verbose:
+            if self.best_val_loss is not None:
                 print(
                     f"Validation loss decreased"
                     f" ({self.best_val_loss:.4f} --> {val_loss:.4f})."
@@ -66,5 +72,39 @@ class EarlyStopping:
     def should_save(self):
         return self.best_val_loss is not None and self.count == 0
 
+
+def save_acc_loss_plots(num_epochs, train_loss, valid_loss, train_acc, valid_acc, logs_directory):
+    loss_df = pd.DataFrame({
+        'Train Loss': train_loss,
+        'Validation Loss': valid_loss,
+        'Train Accuracy': train_acc,
+        'Validation Accuracy': valid_acc
+    })
+    os.chdir(logs_directory)
+    loss_df.to_csv("loss_and_acc.csv")
+    plt.figure(figsize=(12, 6))
+
+    # Loss Plot
+    plt.subplot(121)
+    plt.title("Train Loss vs Validation Loss")
+    plt.plot(range(1, num_epochs + 1), train_loss, label="Train Loss", color='blue')
+    plt.plot(range(1, num_epochs + 1), valid_loss, label="Validation Loss", color='orange')
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+
+    plt.subplot(122)
+    plt.title("Train Accuracy vs Validation Accuracy")
+    plt.plot(range(1, num_epochs + 1), train_acc, label="Train Accuracy", color='green')
+    plt.plot(range(1, num_epochs + 1), valid_acc, label="Validation Accuracy", color='red')
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.legend()
+
+    # Save the plot as a PNG image
+    output_filename = 'loss_val_plot.png'
+    output_filepath = os.path.join(logs_directory, output_filename)
+    plt.tight_layout()
+    plt.savefig(output_filepath)
 
 

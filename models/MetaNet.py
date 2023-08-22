@@ -1,3 +1,8 @@
+"""
+Code written by André Pacheco (pacheco.comp@gmail.com). 
+https://github.com/lmlima/BRACIS2022-Exploring-Advances-for-SLD/tree/main
+"""
+
 import torch 
 from torch import nn
 

@@ -1,3 +1,8 @@
+"""
+Majority of code written by Leandro Lima (leandro.m.lima@ufes.br). 
+https://github.com/lmlima/BRACIS2022-Exploring-Advances-for-SLD/tree/main
+"""
+
 import torch 
 import warnings
 from torch import nn

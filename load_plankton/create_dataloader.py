@@ -1,3 +1,9 @@
+"""
+Majority of code written by André Pacheco (pacheco.comp@gmail.com). 
+https://github.com/lmlima/BRACIS2022-Exploring-Advances-for-SLD/tree/main
+"""
+
+
 import torch
 import torchvision.transforms as transforms
 from sklearn import preprocessing
@@ -6,6 +12,7 @@ import os
 from torch.utils import data
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 class MyDataset (data.Dataset):
     """
@@ -13,7 +20,7 @@ class MyDataset (data.Dataset):
     class and implement the following methods: __len__, __getitem__ and the constructor __init__
     """
 
-    def __init__(self, yaml_args, transform=None):
+    def __init__(self, yaml_args, image_paths, labels, meta_data = None, transform=None):
         """
         The constructor gets the images path and their respectively labels and meta-data (if applicable).
         In addition, you can specify some transform operation to be carry out on the images.
@@ -30,9 +37,9 @@ class MyDataset (data.Dataset):
         """
 
         super().__init__()
-        self.image_paths, self.labels = self._get_image_paths_labels(yaml_args["path_to_image_folder"])
+        self.image_paths, self.labels = image_paths, labels
         if yaml_args["include_metadata"]:
-            self.image_paths, self.labels, self.meta_data = self._get_image_metadata(self.image_paths, self.labels, yaml_args)
+            self.meta_data = meta_data
         else:
             self.meta_data = None
         # if transform is None, we need to ensure that the PIL image will be transformed to tensor, otherwise we'll get an exception
@@ -40,58 +47,6 @@ class MyDataset (data.Dataset):
             self.transform = transform
         else:
             self.transform = transforms.ToTensor()
-
-    def _get_image_paths_labels(self, base_path):
-            image_paths = []
-            labels = []
-            for root, _, files in os.walk(base_path):
-                for file in files:
-                    if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                        image_paths.append(os.path.join(root, file))
-                        labels.append(root.split("/")[-1])
-            le = preprocessing.LabelEncoder()
-            le.fit(labels)
-            labels = le.transform(labels)
-            return image_paths, labels
-    
-    def _get_image_metadata(self, image_paths, labels, yaml_args):
-            image_col = yaml_args["meta_image_name_column"]
-            meta_cols = yaml_args["meta_columns"]
-            meta_data = pd.read_csv(yaml_args["metadata_csv"])
-            metadata_array = meta_data[meta_cols].values
-            has_nan = np.isnan(metadata_array).any(axis=1)
-            # Use boolean indexing to filter rows with NaN values
-            rows_with_nan = meta_data[has_nan]
-            print("Dropping", len(rows_with_nan), "rows with nan values.")
-            meta_data.drop(rows_with_nan.index, inplace=True)
-            metadata_array = meta_data[meta_cols].values
-            # Calculate the mean and standard deviation along the desired axis (axis=0 for mean, axis=0 for standard deviation)
-            metadata_mean = np.mean(metadata_array, axis=0)
-            metadata_std = np.std(metadata_array, axis=0)
-            metadata_std[metadata_std == 0] = 1.0
-            # normalize values 
-            norm_meta = (metadata_array - metadata_mean) / metadata_std
-            # replace "meta" with normalized values 
-            meta_data["meta"] = list(norm_meta)
-            nan_counter = 0
-            image_meta = []
-            image_path_subset = []
-            image_labels = []
-            for idx, image in enumerate(image_paths):
-                try:
-                    image_name = image.split('/')[-1].replace(".png", "")
-                    values = meta_data[meta_data[image_col] == image_name]["meta"].values[0]
-                    image_meta.append(values.tolist())
-                    image_path_subset.append(image)
-                    image_labels.append(labels[idx])
-
-                except IndexError:
-                    print("Skipping image", image_name, " file path:", image)
-                    nan_counter += 1
-
-            print("Number of skipped images (missing metadata):", nan_counter)
-
-            return image_path_subset, image_labels, image_meta
     
     def __len__(self):
         """ This method just returns the dataset size """
@@ -117,8 +72,6 @@ class MyDataset (data.Dataset):
         if self.meta_data is None:
             meta_data = []
         else:
-            #meta_data = self.meta_data[item]
-            #print(self.meta_data[item])
             meta_data = self.meta_data[item]
 
         if self.labels is None:
@@ -129,19 +82,66 @@ class MyDataset (data.Dataset):
         return image, labels, meta_data, img_id
 
 
-def split_and_load(yaml_args, transforms):
+def split_and_load(yaml_args, transforms, label_encoder):
     if yaml_args["run_type"] == "forward_infer":
-        return get_data_loader(yaml_args, transforms)
+        return get_data_loader(yaml_args, transforms, label_encoder)
     print("Splitting into train, test, and validation.")
     if yaml_args["include_metadata"]:
-         train_dataloader, test_dataloader, val_dataloader = get_data_loader(yaml_args, transforms)
+         train_dataloader, test_dataloader, val_dataloader = get_data_loader(yaml_args, transforms, label_encoder)
     else:
-        train_dataloader, test_dataloader, val_dataloader = get_data_loader(yaml_args, transforms)
+        train_dataloader, test_dataloader, val_dataloader = get_data_loader(yaml_args, transforms, label_encoder)
 
     return train_dataloader, test_dataloader, val_dataloader
 
+def get_image_paths_labels(base_path, label_encoder):
+    image_paths = []
+    labels = []
+    for root, _, files in os.walk(base_path):
+        for file in files:
+            if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                image_paths.append(os.path.join(root, file))
+                labels.append(root.split("/")[-1])
+            
+    labels = label_encoder.transform(labels)
+    return image_paths, labels
 
-def get_data_loader (yaml_args, transform, num_workers=4, pin_memory=True):
+
+def get_image_metadata(image_paths, yaml_args):
+    image_col = yaml_args["meta_image_name_column"]
+    meta_cols = yaml_args["meta_columns"]
+    meta_data = pd.read_csv(yaml_args["metadata_csv"])
+    metadata_array = meta_data[meta_cols].values
+    length_of_meta_obs = len(metadata_array[0])
+    nan_counter = 0
+    image_meta = []
+    for idx, image in enumerate(image_paths):
+        try:
+            image_name = image.split('/')[-1].replace(".png", "")
+            values = meta_data[meta_data[image_col] == image_name][meta_cols].values[0]
+            image_meta.append(values.tolist())
+        # TO DO: ENSURE THESE LENGTHS ARE RIGHT AND NOT CREATING SUBLISTS 
+        except IndexError:
+            print(image_name, "not present in metadata file:", image)
+            nan_counter += 1
+            image_meta.append([np.nan] * length_of_meta_obs)
+
+    print("Number of images missing metadata:", nan_counter)
+    return image_meta
+
+
+
+def metadata_impute_and_normalize(df, mean_array, std_array):
+    metadata_array = [np.array(meta) for meta in df["metadata"]]
+    for i, meta in enumerate(metadata_array):
+        nan_indices = np.isnan(meta)
+        metadata_array[i][nan_indices] = mean_array[nan_indices]
+        norm_meta = (meta - mean_array) / std_array
+        metadata_array[i] = norm_meta
+    df["metadata"] = list(metadata_array)
+
+
+
+def get_data_loader (yaml_args, transform, label_encoder, num_workers=4, pin_memory=True):
     """
     This function gets a list og images path, their labels and meta-data (if applicable) and returns a DataLoader
     for these files. You also can set some transformations using torchvision.transforms in order to perform data
@@ -167,29 +167,62 @@ def get_data_loader (yaml_args, transform, num_workers=4, pin_memory=True):
     params = None, the default value will be True
     :return (torch.utils.data.DataLoader): a dataloader with the dataset and the chose params
     """
+
+    images, labels = get_image_paths_labels(yaml_args["path_to_image_folder"], label_encoder)
+
+    if (yaml_args["include_metadata"]):
+        meta_data = get_image_metadata(images, yaml_args)
+        full_data = pd.DataFrame({"images" : images, "labels" : labels, "metadata" : meta_data})
+    else:
+        full_data = pd.DataFrame({"images" : images, "labels" : labels})
     
-    dt = MyDataset(yaml_args, transform)
+    # TO DO: SAVE THE MEAN ARRAY AND VALUES FOR CONTINUTION AND FORWARD INFERENCE PURPOSES 
+    print("Performing train-test-split.")
+    train_df, temp_test_df = train_test_split(full_data, test_size= 1 - yaml_args["train_proportion"], random_state=yaml_args["train_test_split_seed"])
+    test_df, val_df = train_test_split(temp_test_df, test_size=0.5, random_state=yaml_args["train_test_split_seed"]) 
+   
+    print("Length of train dataset:", len(train_df))
+    print("Length of validation dataset:", len(val_df))
+    print("Length of test dataset:", len(test_df))
+
+    train_df = train_df.reset_index()
+    val_df = val_df.reset_index()
+    test_df = test_df.reset_index()
+
+    if (yaml_args["include_metadata"]): 
+        print("Replacing nans and normalizing data.")
+        train_metadata_array = np.array([np.array(meta) for meta in train_df["metadata"]])
+        has_nan = np.isnan(train_metadata_array).any(axis=1)
+        rows_with_nan = train_metadata_array[has_nan]
+        print(len(rows_with_nan), "rows from train set have nan values. Ignoring these rows in mean and std calculation.")
+
+        train_metadata_mean = np.mean(train_metadata_array, axis=0)
+        train_metadata_std = np.std(train_metadata_array, axis=0)
+        train_metadata_std[train_metadata_std == 0] = 1.0
+
+        metadata_impute_and_normalize(train_df, train_metadata_mean, train_metadata_std)
+        metadata_impute_and_normalize(test_df, train_metadata_mean, train_metadata_std)
+        metadata_impute_and_normalize(val_df, train_metadata_mean, train_metadata_std)
+
+        train_dataset = MyDataset(yaml_args, train_df["images"], train_df["labels"], train_df["metadata"], transform)
+        test_dataset = MyDataset(yaml_args, test_df["images"], test_df["labels"], test_df["metadata"], transform)
+        val_dataset = MyDataset(yaml_args, val_df["images"], val_df["labels"], val_df["metadata"], transform)
+    
+    else:
+        train_dataset = MyDataset(yaml_args, train_df["images"], train_df["labels"], None, transform)
+        test_dataset = MyDataset(yaml_args, test_df["images"], test_df["labels"], None, transform)
+        val_dataset = MyDataset(yaml_args, val_df["images"], val_df["labels"], None, transform)
 
     if yaml_args["include_metadata"]:
         collate = custom_collate_fn
     else:
         collate = None 
     
+    # TO DO: FIX FORWARD INFER FOR THIS CONTEXT 
     if yaml_args["run_type"] == "forward_infer":
         return data.DataLoader(dataset=dt, batch_size=yaml_args["batch_size"], shuffle=False, num_workers=num_workers,
                                pin_memory=pin_memory, collate_fn=collate)
     # train test split 
-    train_size = int(yaml_args["train_proportion"] * len(dt))
-    test_size = len(dt) - train_size
-    torch.manual_seed(42)
-    train_dataset, test_dataset = torch.utils.data.random_split(dt, [train_size, test_size])
-    torch.manual_seed(42)
-    test_size = int(.5 * len(test_dataset))
-    val_size = (len(test_dataset) - test_size)
-    test_dataset, val_dataset = torch.utils.data.random_split(test_dataset, [test_size, val_size])
-    print("Length of train dataset:", len(train_dataset))
-    print("Length of validation dataset:", len(val_dataset))
-    print("Length of test dataset:", len(test_dataset))
 
     train = data.DataLoader(dataset=train_dataset, batch_size=yaml_args["batch_size"], shuffle=True, num_workers=num_workers,
                             pin_memory=pin_memory, collate_fn=collate)

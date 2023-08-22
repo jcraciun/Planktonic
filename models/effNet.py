@@ -1,6 +1,6 @@
 """
-Autor: André Pacheco
-Email: pacheco.comp@gmail.com
+Majority of code written by André Pacheco (pacheco.comp@gmail.com). 
+https://github.com/lmlima/BRACIS2022-Exploring-Advances-for-SLD/tree/main
 """
 
 import torch
@@ -16,8 +16,6 @@ class MyEffnet (nn.Module):
                  comb_method=None, comb_config=None, n_feat_conv=1280):
 
         super(MyEffnet, self).__init__()
-        # n_feat_conv / metadata length 
-        # 
         _n_meta_data = 0
         if comb_method is not None:
             if comb_config is None:

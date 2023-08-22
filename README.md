@@ -10,7 +10,7 @@ The following commands will install required libraries such as numpy, pandas, an
 PyTorch and create the appropriate conda environment named 'zooml':
 
 `$ conda env create -f ./conda_environments/environment.yaml`\
-`$ conda activate tf`
+`$ conda activate planktonic_env`
 
 ### Pulling Source code from Git
 
@@ -25,9 +25,12 @@ pair with github and use the ssh version
 ### Using folders of images as input
 
 The dataset folder should have 1 level of subdirectories that are named by the class of
-the images inside the subdirectory. Within these subdirectories, all the files should be
-in PNG format, but alternative formats can be specified as parameters to the dataset in
-the code. Example dataset of images:
+the images inside the subdirectory. Within these subdirectories, all the files should be image files, 
+but alternative formats can be specified as parameters to the dataset in the code. 
+
+NOTE: ENSURE ALL FILES IN DATA_DIR ARE FOLDERS FOR CLASSES. You will get errors/undefined behavior otherwise. 
+
+Example dataset of images:
 
 ```
     <DATA_DIR>/
@@ -38,11 +41,9 @@ the code. Example dataset of images:
 ```
 
 ### Deploy Trial
-After setting up the outputs.yaml file, run the following command to deploy a trial:
+After setting up your .yaml file, run the following command to deploy a trial:
 
-`python3 -m main`
-
-# NOT RELEVANT HERE BELOW, JUST FOR INSPIRATION FOR NEXT STEPS
+`python3 -m main filename.yml`
 
 
 ### Directory Structure
@@ -55,7 +56,7 @@ mean and standard deviation for reprodicibility. These are also centrally cached
 "datasets/". You can also resume training a model by using its "args.yaml".
 ```
     Directory structure is
-    <EXPERIMENT_DIR>/
+    <MAIN>/
     ├── datasets/
     │   └── <DATASET_NAME>/                        <-- Dataset metadata files (e.g. image statistics)
     └── <MODEL_TYPE>_<TRAIN_ID>/
