@@ -134,7 +134,7 @@ def main():
         save_acc_loss_plots(epoch, train_loss, valid_loss, train_acc, valid_acc, logs_directory)
         checkpoint = torch.load(best_epoch_path)
         model, img_transforms = set_model(**checkpoint['init_args']) 
-        test(model, best_epoch_path, test_dataloader, classes, results_directory, yaml_args["include_metadata"])
+        test(model, best_epoch_path, test_dataloader, le.classes_, results_directory, yaml_args["include_metadata"])
                
 
 class Tee:

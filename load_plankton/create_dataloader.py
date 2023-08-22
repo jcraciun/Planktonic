@@ -116,7 +116,7 @@ def get_image_metadata(image_paths, yaml_args):
     image_meta = []
     for idx, image in enumerate(image_paths):
         try:
-            image_name = image.split('/')[-1].replace(".png", "")
+            image_name = image.split('/')[-1]#.replace(".png", "")
             values = meta_data[meta_data[image_col] == image_name][meta_cols].values[0]
             image_meta.append(values.tolist())
         # TO DO: ENSURE THESE LENGTHS ARE RIGHT AND NOT CREATING SUBLISTS 

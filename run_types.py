@@ -179,17 +179,18 @@ def test(model, save_file_path, testloader, classes, save_plot_path, include_met
     plt.figure(figsize=(20, 16))
 
     # Confusion Matrix
-    plt.subplot(231)
+    #plt.subplot(231)
     plt.title("Confusion Matrix")
     sn.heatmap(df_cm, annot=True)
     plt.ylabel("True")
     plt.xlabel("Predicted")
-    plt.tight_layout()
+    #plt.tight_layout()
     confusion_matrix_filename = 'confusion_matrix.png'
     confusion_matrix_filepath = os.path.join(save_plot_path, confusion_matrix_filename)
     plt.savefig(confusion_matrix_filepath)
     plt.clf()
 
+    plt.figure(figsize=(20, 16))
     # Classification Report
     plt.subplot(232)
     plt.title("Classification Report")
@@ -199,33 +200,19 @@ def test(model, save_file_path, testloader, classes, save_plot_path, include_met
 
     plt.subplot(233)  # Adjust the subplot arrangement
     plt.title("Scores")
-    scores_table = pd.DataFrame(scores, columns=["Scores"])
-
-        # Create an AxesTable to display the scores table
-    scores_table_values = scores_table[["Scores"]].values.tolist()  # Convert to 2D list
-    scores_table_rows = scores_table.index.tolist()
-    scores_table_cols = ["Scores"]
-    score_table = plt.table(cellText=scores_table_values,
-                            rowLabels=scores_table_rows,
-                            colLabels=scores_table_cols,
-                            cellLoc='center', loc='center', colWidths=[0.2])
-
-    score_table.auto_set_font_size(False)
-    score_table.set_fontsize(10)
-    score_table.scale(1.5, 1.5)
+    plt.text(0.5, 0.5, scores, horizontalalignment='center', verticalalignment='center', fontsize=12)
     plt.axis('off')
     plt.tight_layout()
 
     # Balanced Accuracy Score
     plt.subplot(212)  # Adjust the subplot arrangement
-    plt.title("Balanced Accuracy")
     plt.text(0.5, 0.5, f"Balanced Accuracy: {balanced_accuracy_score(y_true, y_pred):.2f}",
             horizontalalignment='center', verticalalignment='center', fontsize=16)
     plt.axis('off')
     plt.tight_layout()
     output_filename = 'results.png'
     output_filepath = os.path.join(save_plot_path, output_filename)
-    plt.tight_layout()
+    #plt.tight_layout()
     plt.savefig(output_filepath)
     
 
