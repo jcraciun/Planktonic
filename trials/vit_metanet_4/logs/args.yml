@@ -1,7 +1,7 @@
 #### RUN CONFIGS ################################################################################
 run_type: train # options: train, resume_training, forward_infer
 path_to_image_folder: '/mnt/c/Users/Julia/Documents/NIWC/Planktonic/tiny_depadded_no_marks'
-trial_id: 006
+trial_id: 004
 
 #### DATALOADER CONFIGS ################################################################################
 train_proportion: .8

@@ -1,0 +1,19 @@
+Parsing sample_new_yaml.yml
+Making directories at: /mnt/c/Users/Julia/Documents/NIWC/Planktonic/tensorflow_setup/zooml_julia/trials/vit_metanet_4
+Number of classes: 9
+Classes: ['Acantharia_sun_like', 'Chaetognaths', 'Ctenophores', 'Diatoms_no_spines', 'Diatoms_w_spines', 'Echinoderm_Larvae', 'Foraminifera', 'Siphonophores', 'snow']
+Selected metanet method with parameters (32, 12)
+Setting model and transforms.
+Warning: in metnet, ensure final comb_config value is n_feat_conv divided by 8 * 8 (hard-coded hyperparameter).
+This value should be: 12.0
+Creating dataloaders.
+Splitting into train, test, and validation.
+Number of images missing metadata: 0
+Performing train-test-split.
+Length of train dataset: 7096
+Length of validation dataset: 888
+Length of test dataset: 887
+Replacing nans and normalizing data.
+18 rows from train set have nan values. Ignoring these rows in mean and std calculation.
+Training
+Backend TkAgg is interactive backend. Turning interactive mode on.

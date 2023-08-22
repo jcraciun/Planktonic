@@ -1,0 +1,3 @@
+Parsing sample_new_yaml.yml
+Selected to not include metadata. Changing any comb_config and comb_method input to None.
+Making directories at: /mnt/c/Users/Julia/Documents/NIWC/Planktonic/tensorflow_setup/zooml_julia/trials/vit_None_1

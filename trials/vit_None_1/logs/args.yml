@@ -1,7 +1,7 @@
 #### RUN CONFIGS ################################################################################
 run_type: train # options: train, resume_training, forward_infer
-path_to_image_folder: '/mnt/c/Users/Julia/Documents/NIWC/Planktonic/tiny_depadded_no_marks'
-trial_id: 006
+path_to_image_folder: '/Users/Julia/Documents/NIWC/Planktonic/tiny_depadded_no_marks'
+trial_id: 001
 
 #### DATALOADER CONFIGS ################################################################################
 train_proportion: .8
@@ -30,7 +30,7 @@ path_to_load_model: '/mnt/c/Users/Julia/Documents/NIWC/Planktonic/tensorflow_set
 path_to_copy_infer_images: '/Users/Julia/Documents/NIWC/Planktonic/tensorflow_setup/trial_infer'
 
 #### METADATA CONFIGS ################################################################################
-include_metadata: True
+include_metadata: False
 metadata_csv: 'mini_extended.csv'
 meta_image_name_column: 'Image' # name of column in csv that references the image titles (NOTE: file type at end assumed for all rows (e.g. .jpg/.png))
 comb_method: 'metanet' # options: None, metanet, metablock, concat

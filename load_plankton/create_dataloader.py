@@ -196,8 +196,8 @@ def get_data_loader (yaml_args, transform, label_encoder, num_workers=4, pin_mem
         rows_with_nan = train_metadata_array[has_nan]
         print(len(rows_with_nan), "rows from train set have nan values. Ignoring these rows in mean and std calculation.")
 
-        train_metadata_mean = np.mean(train_metadata_array, axis=0)
-        train_metadata_std = np.std(train_metadata_array, axis=0)
+        train_metadata_mean = np.nanmean(train_metadata_array, axis=0)
+        train_metadata_std = np.nanstd(train_metadata_array, axis=0)
         train_metadata_std[train_metadata_std == 0] = 1.0
 
         metadata_impute_and_normalize(train_df, train_metadata_mean, train_metadata_std)
