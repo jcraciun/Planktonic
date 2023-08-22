@@ -59,8 +59,8 @@ mean and standard deviation for reprodicibility. These are also centrally cached
     <MAIN>/
     ├── datasets/
     │   └── <DATASET_NAME>/                        <-- Dataset metadata files (e.g. image statistics)
-    └── <MODEL_TYPE>_<TRAIN_ID>/
-        └── trial_<TRIAL_ID>/
+    └── trials/
+        └── <MODEL_TYPE>_<COMB_METHOD>_<TRIAL_ID>/
             ├── checkpoints/
             │   └── best_model.pth.tar             <-- Best saved PyTorch model parameters
             ├── deployment_metadata/
@@ -70,14 +70,12 @@ mean and standard deviation for reprodicibility. These are also centrally cached
             │   └── training.csv                   <-- Early stopping count, epoch count
             ├── logs/
             │   ├── args.yaml                      <-- Saved config
-            │   ├── train.log                      <-- Train log
-            │   ├── train_loss.csv                 <-- Train losses
-            │   └── val_loss.csv                   <-- Validation losses
-            └── outputs/
-                ├── graph_for_train_val_loss.png   <-- Graph of train versus validation loss
-                ├── classifications_for_*.csv      <-- True and predicted class for each image
-                ├── confusion_matrix_for_*.png     <-- Confusion matrix image for _ test
-                └── confusion_matrix_for_*.csv     <-- Confusion matrix for _ test
+            │   ├── output.txt                     <-- Printed output during trial
+            │   ├── loss_and_acc.csv               <-- Train/Validation losses and accuracies
+            │   └── loss_val_plot.png              <-- Plot of data from loss_and_acc.csv
+            └── results/
+                ├── results.png                    <-- Image for Sklearn summary chart, accuracies for all classes, balanced accuracy 
+                └── confusion_matrix.png           <-- Confusion matrix image for _ test
 ```
 
 ## Results of Training

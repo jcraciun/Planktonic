@@ -1,7 +1,7 @@
 #### RUN CONFIGS ################################################################################
 run_type: train # options: train, resume_training, forward_infer
-path_to_image_folder: /p/home/jcraciun/.local/data/tiny_depadded_no_marks
-trial_id: 002
+path_to_image_folder: '/mnt/c/Users/Julia/Documents/NIWC/Planktonic/tiny_depadded_no_marks'
+trial_id: 008
 
 #### DATALOADER CONFIGS ################################################################################
 train_proportion: .8
@@ -22,13 +22,12 @@ early_stopper: True
 es_patience: 1
 es_min_delta: 0
 
-#### RESUME_TRAIN CONFIGS ################################################################################
-trial_id: '/mnt/c/Users/Julia/Documents/NIWC/Planktonic/tensorflow_setup/90004/epoch-4.pth'
+#### TEST/RESUME_TRAIN CONFIGS ################################################################################
+path_to_load_model: '/mnt/c/Users/Julia/Documents/NIWC/Planktonic/tensorflow_setup/90004/epoch-4.pth'
 
 
 #### FORWARD INFERENCE CONFIGS ################################################################################
 path_to_copy_infer_images: '/Users/Julia/Documents/NIWC/Planktonic/tensorflow_setup/trial_infer'
-path_to_load_model: '/mnt/c/Users/Julia/Documents/NIWC/Planktonic/tensorflow_setup/90004/epoch-4.pth'
 
 #### METADATA CONFIGS ################################################################################
 include_metadata: True

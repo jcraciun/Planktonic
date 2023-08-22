@@ -85,13 +85,6 @@ def main():
                     f"Validation has not improved over {early_stopper.count}"
                     f" epochs (including previous runs). Early stopping..."
                 )
-                # run test 
-                #best_epoch_path = os.path.join(path_to_save_epochs, 'epoch-{}.pth'.format(best_epoch))
-                #save_acc_loss_plots(start_epoch, epoch, train_loss, valid_loss, train_acc, valid_acc, logs_directory)
-                #checkpoint = torch.load(best_epoch_path)
-                #model, img_transforms = set_model(**checkpoint['init_args']) 
-                #test(model, best_epoch_path, test_dataloader, 
-                #     classes, logs_directory, yaml_args["include_metadata"])
                 break
 
             # train 

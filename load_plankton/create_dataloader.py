@@ -214,7 +214,8 @@ def get_data_loader (yaml_args, transform, label_encoder, num_workers=4, pin_mem
         val_dataset = MyDataset(yaml_args, val_df["images"], val_df["labels"], None, transform)
 
     if yaml_args["include_metadata"]:
-        collate = custom_collate_fn
+        #collate = custom_collate_fn
+        collate = None
     else:
         collate = None 
     
