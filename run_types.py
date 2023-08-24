@@ -240,9 +240,10 @@ def forward_infer(model, image_directory_path, dataloader, classes, include_meta
     model.eval()
     with torch.no_grad():
         print("Applying predicted labels to images.")
-        for images, labels, metadata_batch, paths in tqdm(dataloader):
+        for images, _, metadata_batch, paths in tqdm(dataloader):
             images = images.to("cuda")
-            labels = labels.to("cuda")
+            # REMOVE THE LABELS 
+            #labels = labels.to("cuda")
             if include_metadata:
                 metadata_batch = metadata_batch.to("cuda")
                 metadata_batch = metadata_batch.float()
@@ -250,7 +251,7 @@ def forward_infer(model, image_directory_path, dataloader, classes, include_meta
             else:
                 outputs = model(images)
             output = (torch.max(torch.exp(outputs), 1)[1]).data.cpu().numpy()
-            print("Placing images in predicted class directories.")
+            #print("Placing images in predicted class directories.")
             for i in range(len(output)):
                 source_file = paths[i]
                 destination_directory = image_directory_path + '/' + classes[output[i]]
@@ -260,3 +261,4 @@ def forward_infer(model, image_directory_path, dataloader, classes, include_meta
                     print("Directory not found. Creating one for:", classes[output[i]])
                     os.makedirs(destination_directory)
                     shutil.copy(source_file, destination_directory)
+    print("All images sorted into directories.")
