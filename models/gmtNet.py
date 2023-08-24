@@ -21,8 +21,8 @@ class gmtNet(nn.Module):
             if comb_method == 'metablock':
                 if isinstance(comb_config, int):
                     raise Exception("comb_config must be a list/tuple to define the number of feat maps and the metadata")
-                print("Warning: in metablock, ensure comb_config values is a factor of n_feat_conv divided by number of metadata features.")
-                print("n_feat_conv divided by number of metadata features is:", 512 / comb_config[1])
+                print("Warning: in metablock, ensure comb_config values is a factor of n_feat_conv divided by number of feature maps and hyperparameters.")
+                print("n_feat_conv divided by feature maps and hyperparams is:", 512 / comb_config[0] / comb_config[2])
                 self.comb = MetaBlock.MetaBlock(comb_config[0], comb_config[1]) # (feature maps, metadata)
                 self.comb_feat_maps = comb_config[0]
                 self.hyper_param = comb_config[2] # hyperparam
@@ -34,6 +34,9 @@ class gmtNet(nn.Module):
             elif comb_method == 'metanet':
                 if isinstance(comb_config, int):
                     raise Exception("comb_config must be a list/tuple to define the number of feat maps and the metadata")
+                print("Warning: in metanet, ensure product of feature maps, hyperparam1, and hyperparam2 is equal to n_feat_conv.")
+                print("This product is:", comb_config[2] * comb_config[3] * comb_config[4])
+                print("n_feat_conv is:", 512)
                 self.comb = MetaNet.MetaNet(comb_config[0], comb_config[1], comb_config[2]) # (n_meta, middle, feature_maps)
                 self.comb_feat_maps = comb_config[2]
                 self.hyper_param1 = comb_config[3]
