@@ -12,7 +12,7 @@
             "request": "launch",
             "module": "main",
             "justMyCode": true,
-            "args": ["sample_new_yaml.yml"]
+            "args": ["args.yml"]
         }
     ]
 }

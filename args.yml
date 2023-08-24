@@ -1,10 +1,10 @@
 #### RUN CONFIGS ################################################################################
-run_type: train # options: train, forward_infer
+run_type: train # options: train, resume_training, forward_infer
 path_to_image_folder: '/mnt/c/Users/Julia/Documents/NIWC/Planktonic/tiny_depadded_no_marks'
 image_norm_csv: None # set to None to use default arguments for each model
 
 #### DATALOADER CONFIGS ################################################################################
-batch_size: 64
+batch_size: 32
 num_workers: 4
 pin_memory: True
 
@@ -34,14 +34,14 @@ path_to_load_model: '/mnt/c/Users/Julia/Documents/NIWC/Planktonic/tensorflow_set
 
 #### METADATA CONFIGS ################################################################################
 include_metadata: True
-metadata_csv: 'messed_up_again.csv'
+metadata_csv: 'mini_extended.csv'
 meta_image_name_column: 'Image' # name of column in csv that references the image titles (NOTE: file type at end assumed for all rows (e.g. .jpg/.png))
-comb_method: 'metanet' # options: None, metanet, metablock, concat
-comb_config: (32, 12, 2, 1) 
+comb_method: 'metablock' # options: None, metanet, metablock, concat
+comb_config: (24, 32) 
 # two values for MetaBlock (n_feature_maps, hyper_parameter [32 before])
-# NOTE: SHOULD BE FACTOR OF n_feat_conv (effNet 1280, gmtNet 512, VIT 768) * BATCH_SIZE / n_feature_maps / hyper_parameter 
+# NOTE: SHOULD BE FACTOR OF n_feat_conv (effNet 1280, gmtNet 512, VIT 768) / n_feature_maps / hyper_parameter 
 # three values for MetaNet (n_middle_channels, n_out_channels/feature_maps, hyper_parameter1, hyper_parameter2 [8, 8 before])
-# NOTE: SHOULD ALL MULTIPLY TO n_feat_conv * batch_size 
+# NOTE: SHOULD ALL MULTIPLY TO n_feat_conv 
 # integer for Concat (value will be ignored, can be anything)
 
 
@@ -110,3 +110,4 @@ meta_columns: ['Area Filled mm 2',
  'Minor Axis Len mm',
  'Pressure dbar']
 
+ # TO DO: ADD DATALOADER CONFIGS (NUM_WORKERS, PIN_MEMORY), METABLOCK & METANET HYPERPARAMS

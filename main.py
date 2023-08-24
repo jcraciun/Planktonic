@@ -25,6 +25,45 @@ def main():
 
     """
 
+    if filename == "args.yml":
+        yaml_args["run_type"] = "resume_training"
+        epoch_path = os.path.join(os.getcwd(), "trials", yaml_args["model"] + "_" + str(yaml_args["comb_method"]) + "_" + str(yaml_args["trial_id"]), "checkpoints")
+        epoch_files = [file for file in os.listdir(epoch_path) if file.startswith("epoch-")]
+        if epoch_files:
+            last_epoch_file = max(epoch_files, key=lambda x: int(x.split("-")[1].split(".")[0]))
+            print(f"The filename of the last epoch is: {last_epoch_file}")
+            print("Loading saved model parameters.")
+            checkpoint = torch.load(os.path.join(epoch_path, last_epoch_file))
+            if checkpoint['epoch'] == yaml_args["num_epochs"]:
+                raise Exception("Trial reached max epochs specified in .yml file. Start a new trial.")
+            print("Loading checkpoint dictionary:", checkpoint['init_args'])
+            classes = checkpoint["label_encoder"].classes_
+            num_classes = len(classes)
+            le = checkpoint["label_encoder"]
+            comb_config = checkpoint["init_args"]["comb_config"]
+            image_means = checkpoint["init_args"]["transforms_mean"]
+            image_stds = checkpoint["init_args"]["transforms_std"]
+            print("Setting model and transforms.")
+            model, img_transforms = set_model(**checkpoint['init_args']) 
+            path = os.path.join(os.getcwd(), "trials", checkpoint["init_args"]["model_name"] + "_" + str(checkpoint["init_args"]["comb_method"]) + "_" + str(yaml_args["trial_id"]), "resume_training")
+            # avoid overwriting existing trials 
+            if (os.path.exists(path)):
+                print("The directory for data from resume_training already exists. Overwriting old results.")
+            else:
+                print("Making directories at:", path)
+            os.makedirs(path, exist_ok=True)
+            os.makedirs(os.path.join(path, "checkpoints"), exist_ok=True)
+            os.makedirs(os.path.join(path, "logs"), exist_ok=True)
+            os.makedirs(os.path.join(path, "results"), exist_ok=True)
+            results_directory = os.path.join(path, "results")
+            path_to_save_epochs = os.path.join(path, "checkpoints")
+            shutil.copy(filename, os.path.join(path, "logs", "args.yml"))
+            logs_directory = os.path.join(path, "logs")
+            shutil.move(output_file_name, os.path.join(logs_directory, output_file_name))
+        else:
+            raise Exception("No epoch files found in the folder for the current args.yml.")
+
+
     if yaml_args["run_type"] == "forward_infer":
         print("Loading saved model parameters.")
         checkpoint = torch.load(yaml_args["path_to_load_model"])
@@ -55,14 +94,11 @@ def main():
                 dataloader = split_and_load(yaml_args, img_transforms, metadata_stats_dicts=  metadata_dicts)
         else:
             dataloader = split_and_load(yaml_args, img_transforms)
-        #model, img_transforms = set_model(**checkpoint['init_args']) 
-        #model.load_state_dict(torch.load(yaml_args["path_to_load_model"])['state_dict'])
-        #dataloader = split_and_load(yaml_args, img_transforms, checkpoint["label_encoder"], metadata_dicts)
+
         forward_infer(model, yaml_args["path_to_copy_infer_images"], dataloader, classes, include_metadata=yaml_args["include_metadata"])
         return 0
 
     if yaml_args["run_type"] == "train":
-        # sort comb config and clean up params from yaml 
         if yaml_args["include_metadata"]:
             if yaml_args["comb_method"] == "metablock":
                 config = ast.literal_eval(yaml_args["comb_config"])
@@ -81,11 +117,10 @@ def main():
       # create folders for trial 
         path = os.path.join(os.getcwd(), "trials", yaml_args["model"] + "_" + str(yaml_args["comb_method"]) + "_" + str(yaml_args["trial_id"]))
         # avoid overwriting existing trials 
-        #if (os.path.exists(path)):
-        #    raise Exception("The directory to save this model already exists. Give the .yml file a new trial_id and/or model to avoid overwriting old results.")
-        #else:
-        
-        print("Making directories at:", path)
+        if (os.path.exists(path)):
+            print("The directory to save this model already exists. Overwriting old results.")
+        else:
+            print("Making directories at:", path)
         os.makedirs(path, exist_ok=True)
         os.makedirs(os.path.join(path, "checkpoints"), exist_ok=True)
         os.makedirs(os.path.join(path, "logs"), exist_ok=True)
@@ -97,7 +132,7 @@ def main():
         shutil.move(output_file_name, os.path.join(logs_directory, output_file_name))
 
 
-    # model and transforms 
+        # model and transforms 
         classes = os.listdir(yaml_args["path_to_image_folder"])
         le = LabelEncoder()
         le.fit(classes)
@@ -120,6 +155,8 @@ def main():
                                                 transforms_mean = image_means, transforms_std = image_stds)
         print("Selected", yaml_args["comb_method"], "method with parameters", yaml_args["comb_config"])
 
+        start_epoch = 0
+
 
     print("Creating dataloaders.")
     if yaml_args["include_metadata"]:
@@ -129,83 +166,79 @@ def main():
         meta_mean_dict = None
         meta_std_dict = None
 
+    model.to('cuda')
     # train 
-    if yaml_args["run_type"] == "train" or yaml_args["run_type"] == "resume_training":
-        criterion = nn.CrossEntropyLoss()
-        optimizer = torch.optim.Adam(model.parameters(), lr=yaml_args["adam_learning_rate"])
-        start_epoch = 0
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=yaml_args["adam_learning_rate"])
+    num_epochs = yaml_args["num_epochs"]
 
-        # TO DO: ENSURE RESUME_TRAINING PROPERLY CONTINUES MODEL 
-        if yaml_args["run_type"] == "resume_training":
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            start_epoch = checkpoint['epoch']
+    if yaml_args["run_type"] == "resume_training":
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        start_epoch = checkpoint['epoch']
 
+    if yaml_args["early_stopper"]:
+        early_stopper = EarlyStopping(patience=yaml_args["es_patience"], delta = yaml_args["es_min_delta"])
+
+    train_loss, valid_loss = [], []
+    train_acc, valid_acc = [], []
+
+    for epoch in range(start_epoch, num_epochs):
+        # early stopper activated 
+        if yaml_args["early_stopper"] and early_stopper.should_stop():
+            print(
+                f"Validation has not improved over {early_stopper.count}"
+                f" epochs (including previous runs). Early stopping..."
+            )
+            break
+
+        # train 
+        train_epoch_loss, train_epoch_acc = train(model, train_dataloader, criterion, optimizer, 
+                                                yaml_args["include_metadata"])
+        valid_epoch_loss, valid_epoch_acc = validate(model, val_dataloader, criterion, yaml_args["include_metadata"])
+        # results 
+        train_loss.append(train_epoch_loss)
+        valid_loss.append(valid_epoch_loss)
+        train_acc.append(train_epoch_acc)
+        valid_acc.append(valid_epoch_acc)
+        print("Epoch: ", epoch)    
+        print(f"Training loss: {train_epoch_loss:.3f}, training acc: {train_epoch_acc:.3f}")
+        print(f"Validation loss: {valid_epoch_loss:.3f}, validation acc: {valid_epoch_acc:.3f}")
+        print('-'*50)
+        
+        # update early stopper 
         if yaml_args["early_stopper"]:
-            early_stopper = EarlyStopping(patience=yaml_args["es_patience"], delta = yaml_args["es_min_delta"])
+            early_stopper.step(valid_epoch_loss)
 
-        model.to('cuda')
-        num_epochs = yaml_args["num_epochs"]
+        # save model 
+        state = {'epoch': epoch + 1, 'state_dict': model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    "label_encoder" : le,
+                    "init_args" : {
+                        'model_name': yaml_args["model"],
+                        'num_class': num_classes,
+                        'p_dropout': yaml_args["p_dropout"],
+                        'comb_method': yaml_args["comb_method"],
+                        'comb_config': comb_config,
+                        'neurons_reducer_block': yaml_args["neurons_reducer_block"],
+                        'transforms_mean' : image_means, 
+                        'transforms_std' : image_stds
+                    },
+                    "transfer_args" : {
+                        "metadata_std_dict" : meta_std_dict,
+                        "metadata_mean_dict" : meta_mean_dict 
+                    }}
+            # save only best 
+        if valid_epoch_loss <= min(valid_loss):
+            best_epoch = epoch + 1
+            print("Epoch", epoch+1, "is the new best model. Saving to file.")
+            torch.save(state, os.path.join(path_to_save_epochs, 'epoch-{}.pth'.format(epoch+1)))
 
-        train_loss, valid_loss = [], []
-        train_acc, valid_acc = [], []
-
-        for epoch in range(start_epoch, num_epochs):
-            # early stopper activated 
-            if yaml_args["early_stopper"] and early_stopper.should_stop():
-                print(
-                    f"Validation has not improved over {early_stopper.count}"
-                    f" epochs (including previous runs). Early stopping..."
-                )
-                break
-
-            # train 
-            train_epoch_loss, train_epoch_acc = train(model, train_dataloader, criterion, optimizer, 
-                                                    yaml_args["include_metadata"])
-            valid_epoch_loss, valid_epoch_acc = validate(model, val_dataloader, criterion, yaml_args["include_metadata"])
-            # results 
-            train_loss.append(train_epoch_loss)
-            valid_loss.append(valid_epoch_loss)
-            train_acc.append(train_epoch_acc)
-            valid_acc.append(valid_epoch_acc)
-            print("Epoch: ", epoch)    
-            print(f"Training loss: {train_epoch_loss:.3f}, training acc: {train_epoch_acc:.3f}")
-            print(f"Validation loss: {valid_epoch_loss:.3f}, validation acc: {valid_epoch_acc:.3f}")
-            print('-'*50)
-            
-            # update early stopper 
-            if yaml_args["early_stopper"]:
-                early_stopper.step(valid_epoch_loss)
-
-            # save model 
-            state = {'epoch': epoch + 1, 'state_dict': model.state_dict(),
-                     'optimizer': optimizer.state_dict(),
-                     "label_encoder" : le,
-                     "init_args" : {
-                            'model_name': yaml_args["model"],
-                            'num_class': num_classes,
-                            'p_dropout': yaml_args["p_dropout"],
-                            'comb_method': yaml_args["comb_method"],
-                            'comb_config': comb_config,
-                            'neurons_reducer_block': yaml_args["neurons_reducer_block"],
-                            'transforms_mean' : image_means, 
-                            'transforms_std' : image_stds
-                        },
-                     "transfer_args" : {
-                         "metadata_std_dict" : meta_std_dict,
-                         "metadata_mean_dict" : meta_mean_dict 
-                     }}
-                # save only best 
-            if valid_epoch_loss <= min(valid_loss):
-                best_epoch = epoch + 1
-                print("Epoch", epoch+1, "is the new best model. Saving to file.")
-                torch.save(state, os.path.join(path_to_save_epochs, 'epoch-{}.pth'.format(epoch+1)))
-
-        best_epoch_path = os.path.join(path_to_save_epochs, 'epoch-{}.pth'.format(best_epoch))
-        print("Selected model for testing from:", best_epoch_path)
-        save_acc_loss_plots(epoch, train_loss, valid_loss, train_acc, valid_acc, logs_directory)
-        checkpoint = torch.load(best_epoch_path)
-        model, img_transforms = set_model(**checkpoint['init_args']) 
-        test(model, best_epoch_path, test_dataloader, le.classes_, results_directory, yaml_args["include_metadata"])
+    best_epoch_path = os.path.join(path_to_save_epochs, 'epoch-{}.pth'.format(best_epoch))
+    print("Selected model for testing from:", best_epoch_path)
+    save_acc_loss_plots(epoch, train_loss, valid_loss, train_acc, valid_acc, logs_directory)
+    checkpoint = torch.load(best_epoch_path)
+    model, img_transforms = set_model(**checkpoint['init_args']) 
+    test(model, best_epoch_path, test_dataloader, le.classes_, results_directory, yaml_args["include_metadata"])
                
 
 class Tee:
