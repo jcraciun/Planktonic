@@ -20,7 +20,7 @@ class MyDataset (data.Dataset):
     class and implement the following methods: __len__, __getitem__ and the constructor __init__
     """
 
-    def __init__(self, yaml_args, image_paths, labels, meta_data = None, transform=None):
+    def __init__(self, yaml_args, image_paths, labels = None, meta_data = None, transform=None):
         """
         The constructor gets the images path and their respectively labels and meta-data (if applicable).
         In addition, you can specify some transform operation to be carry out on the images.
@@ -37,7 +37,12 @@ class MyDataset (data.Dataset):
         """
 
         super().__init__()
-        self.image_paths, self.labels = image_paths, labels
+        self.image_paths = image_paths
+        if yaml_args["run_type"] == "forward_infer":
+            self.labels = None
+        else:
+            self.labels = labels
+
         if yaml_args["include_metadata"]:
             self.meta_data = meta_data
         else:
@@ -50,7 +55,7 @@ class MyDataset (data.Dataset):
     
     def __len__(self):
         """ This method just returns the dataset size """
-        return len(self.labels)
+        return len(self.image_paths)
 
 
     def __getitem__(self, item):
@@ -82,18 +87,13 @@ class MyDataset (data.Dataset):
         return image, labels, meta_data, img_id
 
 
-def split_and_load(yaml_args, transforms, label_encoder):
+def split_and_load(yaml_args, transforms, label_encoder = None, metadata_stats_dicts = None):
     if yaml_args["run_type"] == "forward_infer":
-        return get_data_loader(yaml_args, transforms, label_encoder)
-    print("Splitting into train, test, and validation.")
-    if yaml_args["include_metadata"]:
-         train_dataloader, test_dataloader, val_dataloader = get_data_loader(yaml_args, transforms, label_encoder)
-    else:
-        train_dataloader, test_dataloader, val_dataloader = get_data_loader(yaml_args, transforms, label_encoder)
+        return get_data_loader(yaml_args, transforms, metadata_stats_dicts = metadata_stats_dicts)
+    return get_data_loader(yaml_args, transforms, label_encoder = label_encoder)
 
-    return train_dataloader, test_dataloader, val_dataloader
 
-def get_image_paths_labels(base_path, label_encoder):
+def get_image_paths_labels(base_path, label_encoder = None, forward_infer = False):
     image_paths = []
     labels = []
     for root, _, files in os.walk(base_path):
@@ -101,14 +101,21 @@ def get_image_paths_labels(base_path, label_encoder):
             if file.lower().endswith(('.png', '.jpg', '.jpeg')):
                 image_paths.append(os.path.join(root, file))
                 labels.append(root.split("/")[-1])
-            
+    
+    if forward_infer:
+        return image_paths
+    
     labels = label_encoder.transform(labels)
     return image_paths, labels
 
 
-def get_image_metadata(image_paths, yaml_args):
+def get_image_metadata(image_paths, yaml_args, meta_stats_dicts = None):
     image_col = yaml_args["meta_image_name_column"]
-    meta_cols = yaml_args["meta_columns"]
+    # if metadata statistics exist (forward inference)
+    if meta_stats_dicts is None:
+        meta_cols = yaml_args["meta_columns"]
+    else:
+        meta_cols = list(meta_stats_dicts["metadata_mean_dict"].keys())
     meta_data = pd.read_csv(yaml_args["metadata_csv"])
     metadata_array = meta_data[meta_cols].values
     length_of_meta_obs = len(metadata_array[0])
@@ -119,7 +126,7 @@ def get_image_metadata(image_paths, yaml_args):
             image_name = image.split('/')[-1]#.replace(".png", "")
             values = meta_data[meta_data[image_col] == image_name][meta_cols].values[0]
             image_meta.append(values.tolist())
-        # TO DO: ENSURE THESE LENGTHS ARE RIGHT AND NOT CREATING SUBLISTS 
+
         except IndexError:
             print(image_name, "not present in metadata file:", image)
             nan_counter += 1
@@ -141,7 +148,7 @@ def metadata_impute_and_normalize(df, mean_array, std_array):
 
 
 
-def get_data_loader (yaml_args, transform, label_encoder, num_workers=4, pin_memory=True):
+def get_data_loader (yaml_args, transform, label_encoder = None, metadata_stats_dicts = None):
     """
     This function gets a list og images path, their labels and meta-data (if applicable) and returns a DataLoader
     for these files. You also can set some transformations using torchvision.transforms in order to perform data
@@ -168,6 +175,21 @@ def get_data_loader (yaml_args, transform, label_encoder, num_workers=4, pin_mem
     :return (torch.utils.data.DataLoader): a dataloader with the dataset and the chose params
     """
 
+    if yaml_args["run_type"] == "forward_infer":
+        images = get_image_paths_labels(yaml_args["path_to_image_folder"], forward_infer=True)
+        if (yaml_args["include_metadata"]):
+            meta_data = get_image_metadata(images, yaml_args, metadata_stats_dicts)
+            full_data = pd.DataFrame({"images" : images, "metadata" : meta_data})
+            print("Replacing nans and normalizing data.")
+            metadata_impute_and_normalize(full_data, np.array(list(metadata_stats_dicts["metadata_mean_dict"].values())),  np.array(list(metadata_stats_dicts["metadata_std_dict"].values())))
+            dt = MyDataset(yaml_args, full_data["images"], meta_data=full_data["metadata"], transform=transform)
+        else:
+            full_data = pd.DataFrame({"images" : images})
+            dt = MyDataset(yaml_args, full_data["images"], transform=transform)
+        
+        return data.DataLoader(dataset=dt, batch_size=yaml_args["batch_size"], shuffle=False, num_workers=yaml_args["num_workers"],
+                               pin_memory=yaml_args["pin_memory"])
+
     images, labels = get_image_paths_labels(yaml_args["path_to_image_folder"], label_encoder)
 
     if (yaml_args["include_metadata"]):
@@ -175,8 +197,7 @@ def get_data_loader (yaml_args, transform, label_encoder, num_workers=4, pin_mem
         full_data = pd.DataFrame({"images" : images, "labels" : labels, "metadata" : meta_data})
     else:
         full_data = pd.DataFrame({"images" : images, "labels" : labels})
-    
-    # TO DO: SAVE THE MEAN ARRAY AND VALUES FOR CONTINUTION AND FORWARD INFERENCE PURPOSES 
+
     print("Performing train-test-split.")
     train_df, temp_test_df = train_test_split(full_data, test_size= 1 - yaml_args["train_proportion"], random_state=yaml_args["train_test_split_seed"])
     test_df, val_df = train_test_split(temp_test_df, test_size=0.5, random_state=yaml_args["train_test_split_seed"]) 
@@ -207,40 +228,41 @@ def get_data_loader (yaml_args, transform, label_encoder, num_workers=4, pin_mem
         train_dataset = MyDataset(yaml_args, train_df["images"], train_df["labels"], train_df["metadata"], transform)
         test_dataset = MyDataset(yaml_args, test_df["images"], test_df["labels"], test_df["metadata"], transform)
         val_dataset = MyDataset(yaml_args, val_df["images"], val_df["labels"], val_df["metadata"], transform)
+        mean_dict = dict(zip(yaml_args["meta_columns"], train_metadata_mean))
+        std_dict = dict(zip(yaml_args["meta_columns"], train_metadata_std))
     
     else:
         train_dataset = MyDataset(yaml_args, train_df["images"], train_df["labels"], None, transform)
         test_dataset = MyDataset(yaml_args, test_df["images"], test_df["labels"], None, transform)
         val_dataset = MyDataset(yaml_args, val_df["images"], val_df["labels"], None, transform)
 
-    if yaml_args["include_metadata"]:
+    #if yaml_args["include_metadata"]:
         #collate = custom_collate_fn
-        collate = None
-    else:
-        collate = None 
+    #    collate = None
+    #else:
+    #    collate = None 
     
-    # TO DO: FIX FORWARD INFER FOR THIS CONTEXT 
-    if yaml_args["run_type"] == "forward_infer":
-        return data.DataLoader(dataset=dt, batch_size=yaml_args["batch_size"], shuffle=False, num_workers=num_workers,
-                               pin_memory=pin_memory, collate_fn=collate)
     # train test split 
 
-    train = data.DataLoader(dataset=train_dataset, batch_size=yaml_args["batch_size"], shuffle=True, num_workers=num_workers,
-                            pin_memory=pin_memory, collate_fn=collate)
-    test = data.DataLoader(dataset=test_dataset, batch_size=yaml_args["batch_size"], shuffle=False, num_workers=num_workers,
-                          pin_memory=pin_memory, collate_fn=collate)
-    val = data.DataLoader(dataset=val_dataset, batch_size=yaml_args["batch_size"], shuffle=False, num_workers=num_workers,
-                          pin_memory=pin_memory, collate_fn=collate)
+    train = data.DataLoader(dataset=train_dataset, batch_size=yaml_args["batch_size"], shuffle=True, num_workers=yaml_args["num_workers"],
+                               pin_memory=yaml_args["pin_memory"])#, collate_fn=collate)
+    test = data.DataLoader(dataset=test_dataset, batch_size=yaml_args["batch_size"], shuffle=False, num_workers=yaml_args["num_workers"],
+                            pin_memory=yaml_args["pin_memory"])#, collate_fn=collate)
+    val = data.DataLoader(dataset=val_dataset, batch_size=yaml_args["batch_size"], shuffle=False, num_workers=yaml_args["num_workers"],
+                               pin_memory=yaml_args["pin_memory"])#, collate_fn=collate)
+    
+
+    if yaml_args["include_metadata"]:
+        return train, test, val, mean_dict, std_dict
 
     return train, test, val
-
+"""
 def custom_collate_fn(batch):
-    """
-    Ensures that the metadata is properly stacked and in order 
-    (in some cases, data can become vertically split across rows instead of horizontally otherwise)
-    """
+    #Ensures that the metadata is properly stacked and in order 
+    #(in some cases, data can become vertically split across rows instead of horizontally otherwise)
     images, labels, meta_data, img_ids = zip(*batch)
     images = torch.stack(images)
     labels = torch.tensor(labels)
     meta_data_padded = torch.stack([torch.DoubleTensor(meta) for meta in meta_data])
     return images, labels, meta_data_padded, img_ids
+"""
