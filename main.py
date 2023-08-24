@@ -27,7 +27,8 @@ def main():
 
     if filename == "args.yml":
         yaml_args["run_type"] = "resume_training"
-        epoch_path = os.path.join(os.getcwd(), "trials", yaml_args["model"] + "_" + str(yaml_args["comb_method"]) + "_" + str(yaml_args["trial_id"]), "checkpoints")
+        path = yaml_args["trial_path"]
+        epoch_path = os.path.join(path, "checkpoints")
         epoch_files = [file for file in os.listdir(epoch_path) if file.startswith("epoch-")]
         if epoch_files:
             last_epoch_file = max(epoch_files, key=lambda x: int(x.split("-")[1].split(".")[0]))
@@ -45,21 +46,13 @@ def main():
             image_stds = checkpoint["init_args"]["transforms_std"]
             print("Setting model and transforms.")
             model, img_transforms = set_model(**checkpoint['init_args']) 
-            path = os.path.join(os.getcwd(), "trials", checkpoint["init_args"]["model_name"] + "_" + str(checkpoint["init_args"]["comb_method"]) + "_" + str(yaml_args["trial_id"]), "resume_training")
-            # avoid overwriting existing trials 
-            if (os.path.exists(path)):
-                print("The directory for data from resume_training already exists. Overwriting old results.")
-            else:
-                print("Making directories at:", path)
-            os.makedirs(path, exist_ok=True)
-            os.makedirs(os.path.join(path, "checkpoints"), exist_ok=True)
-            os.makedirs(os.path.join(path, "logs"), exist_ok=True)
-            os.makedirs(os.path.join(path, "results"), exist_ok=True)
-            results_directory = os.path.join(path, "results")
-            path_to_save_epochs = os.path.join(path, "checkpoints")
-            shutil.copy(filename, os.path.join(path, "logs", "args.yml"))
-            logs_directory = os.path.join(path, "logs")
-            shutil.move(output_file_name, os.path.join(logs_directory, output_file_name))
+            with open(filename, "w") as yaml_file:
+                yaml.dump(yaml_args, yaml_file)
+
+            shutil.copy(filename, os.path.join(path, "logs", "resume_train_args.yml"))
+            shutil.move(output_file_name, os.path.join(path, "logs", "resume_train_output.txt"))
+            # create new csv for loss_and_acc
+
         else:
             raise Exception("No epoch files found in the folder for the current args.yml.")
 
@@ -116,21 +109,23 @@ def main():
                         
       # create folders for trial 
         path = os.path.join(os.getcwd(), "trials", yaml_args["model"] + "_" + str(yaml_args["comb_method"]) + "_" + str(yaml_args["trial_id"]))
+        yaml_args["trial_path"] = path
         # avoid overwriting existing trials 
         if (os.path.exists(path)):
-            print("The directory to save this model already exists. Overwriting old results.")
+            print("The directory to save this model already exists. Overwriting old results at:", path)
         else:
             print("Making directories at:", path)
+        
+        with open(filename, "w") as yaml_file:
+            yaml.dump(yaml_args, yaml_file)
+
         os.makedirs(path, exist_ok=True)
         os.makedirs(os.path.join(path, "checkpoints"), exist_ok=True)
         os.makedirs(os.path.join(path, "logs"), exist_ok=True)
         os.makedirs(os.path.join(path, "results"), exist_ok=True)
-        results_directory = os.path.join(path, "results")
-        path_to_save_epochs = os.path.join(path, "checkpoints")
-        shutil.copy(filename, os.path.join(path, "logs", "args.yml"))
         logs_directory = os.path.join(path, "logs")
+        shutil.copy(filename, os.path.join(path, "logs", "args.yml"))
         shutil.move(output_file_name, os.path.join(logs_directory, output_file_name))
-
 
         # model and transforms 
         classes = os.listdir(yaml_args["path_to_image_folder"])
@@ -146,7 +141,7 @@ def main():
         else:
             image_data = pd.read_csv(yaml_args["image_norm_csv"])
             image_means = list(image_data.means)
-            image_means = list(image_data.stds)
+            image_stds = list(image_data.stds)
 
 
         print("Setting model and transforms.")
@@ -156,6 +151,14 @@ def main():
         print("Selected", yaml_args["comb_method"], "method with parameters", yaml_args["comb_config"])
 
         start_epoch = 0
+
+    results_directory = os.path.join(path, "results")
+    path_to_save_epochs = os.path.join(path, "checkpoints")
+    logs_directory = os.path.join(path, "logs")
+    train_loss_file = os.path.join(logs_directory, "train_losses.txt")
+    valid_loss_file = os.path.join(logs_directory, "valid_losses.txt")
+    train_acc_file = os.path.join(logs_directory, "train_acc.txt")
+    valid_acc_file = os.path.join(logs_directory, "valid_acc.txt")
 
 
     print("Creating dataloaders.")
@@ -200,7 +203,16 @@ def main():
         valid_loss.append(valid_epoch_loss)
         train_acc.append(train_epoch_acc)
         valid_acc.append(valid_epoch_acc)
-        print("Epoch: ", epoch)    
+        with open(train_loss_file, "a") as train_loss_f:
+            train_loss_f.write(f"Epoch {epoch + 1}: Training Loss: {train_epoch_loss:.3f}\n")
+        with open(valid_loss_file, "a") as valid_loss_f:
+            valid_loss_f.write(f"Epoch {epoch + 1}: Validation Loss: {valid_epoch_loss:.3f}\n")
+        with open(train_acc_file, "a") as train_acc_f:
+            train_acc_f.write(f"Epoch {epoch + 1}: Training Loss: {train_epoch_acc:.3f}\n")
+        with open(valid_acc_file, "a") as valid_acc_f:
+            valid_acc_f.write(f"Epoch {epoch + 1}: Validation Loss: {valid_epoch_acc:.3f}\n")
+
+        print("Epoch: ", epoch + 1)    
         print(f"Training loss: {train_epoch_loss:.3f}, training acc: {train_epoch_acc:.3f}")
         print(f"Validation loss: {valid_epoch_loss:.3f}, validation acc: {valid_epoch_acc:.3f}")
         print('-'*50)
@@ -235,7 +247,20 @@ def main():
 
     best_epoch_path = os.path.join(path_to_save_epochs, 'epoch-{}.pth'.format(best_epoch))
     print("Selected model for testing from:", best_epoch_path)
-    save_acc_loss_plots(epoch, train_loss, valid_loss, train_acc, valid_acc, logs_directory)
+    train_losses = []
+    valid_losses = []
+    train_accs = []
+    valid_accs = []
+    with open(train_loss_file, "r") as train_loss_f:
+        train_losses = [float(line.split(":")[-1]) for line in train_loss_f.readlines()]
+    with open(valid_loss_file, "r") as valid_loss_f:
+        valid_losses = [float(line.split(":")[-1]) for line in valid_loss_f.readlines()]
+    with open(train_acc_file, "r") as train_acc_f:
+        train_accs = [float(line.split(":")[-1]) for line in train_acc_f.readlines()]
+    with open(valid_acc_file, "r") as valid_acc_f:
+        valid_accs = [float(line.split(":")[-1]) for line in valid_acc_f.readlines()]
+
+    save_acc_loss_plots(train_losses, valid_losses, train_accs, valid_accs, logs_directory)
     checkpoint = torch.load(best_epoch_path)
     model, img_transforms = set_model(**checkpoint['init_args']) 
     test(model, best_epoch_path, test_dataloader, le.classes_, results_directory, yaml_args["include_metadata"])

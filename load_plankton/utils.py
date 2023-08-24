@@ -73,7 +73,7 @@ class EarlyStopping:
         return self.best_val_loss is not None and self.count == 0
 
 
-def save_acc_loss_plots(num_epochs, train_loss, valid_loss, train_acc, valid_acc, logs_directory):
+def save_acc_loss_plots(train_loss, valid_loss, train_acc, valid_acc, logs_directory):
     loss_df = pd.DataFrame({
         'Train Loss': train_loss,
         'Validation Loss': valid_loss,
@@ -87,16 +87,16 @@ def save_acc_loss_plots(num_epochs, train_loss, valid_loss, train_acc, valid_acc
     # Loss Plot
     plt.subplot(121)
     plt.title("Train Loss vs Validation Loss")
-    plt.plot(range(1, num_epochs + 1), train_loss, label="Train Loss", color='blue')
-    plt.plot(range(1, num_epochs + 1), valid_loss, label="Validation Loss", color='orange')
+    plt.plot(range(1, len(loss_df) + 1), train_loss, label="Train Loss", color='blue')
+    plt.plot(range(1, len(loss_df) + 1), valid_loss, label="Validation Loss", color='orange')
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.legend()
 
     plt.subplot(122)
     plt.title("Train Accuracy vs Validation Accuracy")
-    plt.plot(range(1, num_epochs + 1), train_acc, label="Train Accuracy", color='green')
-    plt.plot(range(1, num_epochs + 1), valid_acc, label="Validation Accuracy", color='red')
+    plt.plot(range(1, len(loss_df) + 1), train_acc, label="Train Accuracy", color='green')
+    plt.plot(range(1, len(loss_df) + 1), valid_acc, label="Validation Accuracy", color='red')
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
     plt.legend()
