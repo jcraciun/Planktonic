@@ -13,7 +13,7 @@ from efficientnet_pytorch import EfficientNet
 
 
 def set_model (model_name, num_class, neurons_reducer_block=0, comb_method=None, comb_config=None, pretrained=True,
-         freeze_conv=True, p_dropout=0.5):
+         freeze_conv=True, p_dropout=0.5, transforms_mean=None, transforms_std=None):
 
     if pretrained:
         pre_ptm = 'imagenet'
@@ -29,7 +29,9 @@ def set_model (model_name, num_class, neurons_reducer_block=0, comb_method=None,
             utils.PadCenterCrop((256, 256)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
-            std=[0.229, 0.224, 0.225] )
+            std=[0.229, 0.224, 0.225] ) if transforms_mean is None
+            else transforms.Normalize(mean=transforms_mean,
+            std=transforms_std)
     ])
     if model_name == 'vit':
         pretrained_vit = 'google/vit-base-patch16-224-in21k' # Default
@@ -42,7 +44,9 @@ def set_model (model_name, num_class, neurons_reducer_block=0, comb_method=None,
             utils.PadCenterCrop((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.5, 0.5, 0.5],
-                                 std=[0.5, 0.5, 0.5] )
+                                 std=[0.5, 0.5, 0.5] ) if transforms_mean is None
+            else transforms.Normalize(mean=transforms_mean,
+            std=transforms_std)
     ])
     if model_name == 'efficientnet-b0':
         model = effNet.MyEffnet(EfficientNet.from_pretrained(model_name), num_class, neurons_reducer_block, freeze_conv,
@@ -51,17 +55,10 @@ def set_model (model_name, num_class, neurons_reducer_block=0, comb_method=None,
             utils.PadCenterCrop((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
+                                 std=[0.229, 0.224, 0.225]) if transforms_mean is None
+            else transforms.Normalize(mean=transforms_mean,
+            std=transforms_std)
     ])
 
-    if model_name == 'efficientnet-b4':
-        model = effNet.MyEffnet(EfficientNet.from_pretrained(model_name), num_class, neurons_reducer_block, freeze_conv,
-                         comb_method=comb_method, comb_config=comb_config)
-        model_transforms = transforms.Compose([
-            utils.PadCenterCrop((380, 380)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
-    ])
        
     return model, model_transforms

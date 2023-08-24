@@ -26,8 +26,9 @@ class MyViT (nn.Module):
                     raise Exception("comb_config must be a list/tuple to define the number of feat maps and the metadata")
                 print("Warning: in metablock, ensure comb_config values is a factor of n_feat_conv divided by number of metadata features.")
                 print("n_feat_conv divided by number of metadata features is:", n_feat_conv / comb_config[0])
-                self.comb = MetaBlock.MetaBlock(comb_config[0], comb_config[1]) # with 768, max is 24 
+                self.comb = MetaBlock.MetaBlock(comb_config[0], comb_config[1]) # (feature maps, metadata)
                 self.comb_feat_maps = comb_config[0]
+                self.hyper_param = comb_config[2] # hyperparam
             elif comb_method == 'concat':
                 if not isinstance(comb_config, int):
                     raise Exception("comb_config must be int for 'concat' method")
@@ -36,10 +37,10 @@ class MyViT (nn.Module):
             elif comb_method == 'metanet':
                 if isinstance(comb_config, int):
                     raise Exception("comb_config must be a list/tuple to define the number of feat maps and the metadata")
-                print("Warning: in metnet, ensure final comb_config value is n_feat_conv divided by 8 * 8 (hard-coded hyperparameter).")
-                print("This value should be:", n_feat_conv / 64)
-                self.comb = MetaNet.MetaNet(comb_config[0], comb_config[1], comb_config[2]) # (n_meta, middle, 20)
+                self.comb = MetaNet.MetaNet(comb_config[0], comb_config[1], comb_config[2]) # (n_meta, middle, feature_maps)
                 self.comb_feat_maps = comb_config[2]
+                self.hyper_param1 = comb_config[3]
+                self.hyper_param2 = comb_config[4]
             else:
                 raise Exception("There is no comb_method called " + comb_method + ". Please, check this out.")
         else:
@@ -93,14 +94,14 @@ class MyViT (nn.Module):
                 x = self.reducer_block(x) # feat reducer block. In this case, it must be defined
             x = torch.cat((x, meta_data), dim=1) # concatenation
         elif isinstance(self.comb, MetaBlock.MetaBlock):
-            x = x.view(x.size(0), self.comb_feat_maps, 32, -1).squeeze(-1) # getting the feature maps
+            x = x.view(x.size(0), self.comb_feat_maps, self.hyper_param, -1).squeeze(-1) # getting the feature maps
             x = self.comb(x, meta_data.float()) # applying MetaBlock
             x = x.view(x.size(0), -1) # flatting
             if self.reducer_block is not None:
                 x = self.reducer_block(x)  # feat reducer block
         elif isinstance(self.comb, MetaNet.MetaNet):
             #print(x.size())
-            x = x.view(x.size(0), self.comb_feat_maps, 8, 8).squeeze(-1)  # getting the feature maps
+            x = x.view(x.size(0), self.comb_feat_maps, self.hyper_param1, self.hyper_param2).squeeze(-1)  # getting the feature maps
             x = self.comb(x, meta_data.float())  # applying metanet
             x = x.view(x.size(0), -1)  # flatting
             if self.reducer_block is not None:
