@@ -1,5 +1,5 @@
 # Zooplankton-Pytorch (Julia's version)
-Note: file copied from https://github.com/illinijeff/zooml.git
+Note: file format and certain text copied from https://github.com/illinijeff/zooml.git
 
 ## Purpose and Signficance 
 
@@ -96,7 +96,7 @@ method utilized, and its train ID. You can also resume training a model by using
 
 ## Results of Training
 
-Models will stop training after the maximum number of epochs or once the`EarlyStopper` is activated. The results.png
+Models will stop training after the maximum number of epochs or once the`EarlyStopper` is activated. The `results/` directory will output the relevant .png files. 
 
 ## Resume Training 
 
@@ -118,11 +118,11 @@ if metadata is included:
 - standard deviation dictionary for the metadata training set 
 - mean dictionary for the metadata training set 
 
-### Meta Data csv 
+### Meta Data CSV
 **Note that file type at end assumed for all rows containing the image name (e.g. .jpg/.png)**
 
 ## Testing / Applying a trained model to unlabeled images
-Setting `run_type` in your .yml file to forward-inference will sort images into folders given a pre-trained model. 
+Setting `run_type` in your .yml file to `forward-inference` will sort images into folders given a pre-trained model. 
 The path should be set to the file you want the images to be sorted into. This mode will create a folder for a class
 if it is not existent in the path. 
 
