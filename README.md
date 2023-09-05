@@ -153,6 +153,12 @@ Start here to activate WSL environment on your computer: https://learn.microsoft
 - Note: Information up to `Add additional distributions` is required, rest is helpful to know, but not necessary. 
 - You can activate it anytime by opening your Command Prompt and simply typing `wsl`. 
 
+Install Python by running the following commands: 
+
+```
+sudo apt install python3 python3-pip ipython3
+```
+
 Next, install MiniConda from the terminal: 
 
 ```
@@ -169,6 +175,7 @@ Now for PyTorch, install on Linux through Conda in a new environment. Pick eithe
 
 
 ### Writing Code in WSL Environment 
-If you want to run Jupyter though the WSL tunnel, use the following in the wsl terminal: `jupyter lab --no-browser` and copy the link into your browser. 
+If you want to run Jupyter though the WSL tunnel, use the following in the wsl terminal: `jupyter lab --no-browser` and copy the link into your browser.
+- Note: you may have to run `pip3 install jupyter` beforehand in case it didn't download with MiniConda 
 
 If you want to use VSCode, you need to tunnel into the WSL environment. This link has a more elegant method that I've never tried: https://code.visualstudio.com/docs/remote/wsl. However, I just went to the search bar in VSCode, typed "WSL", and selected "WSL: Open folder in WSL". 
