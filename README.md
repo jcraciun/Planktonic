@@ -1,4 +1,4 @@
-# Zooplankton-Pytorch (Julia's version)
+# Zooplankton-PyTorch (Julia's version)
 Note: file format and certain text copied from https://github.com/illinijeff/zooml.git
 
 ## Purpose and Signficance 
