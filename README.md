@@ -171,4 +171,4 @@ Now for PyTorch, install on Linux through Conda in a new environment. Pick eithe
 ### Writing Code in WSL Environment 
 If you want to run Jupyter though the WSL tunnel, use the following in the wsl terminal: `jupyter lab --no-browser` and copy the link into your browser. 
 
-If you want to use VSCode, you need to tunnel into the WSL environment. This link has a more elegant method that I've never tried: https://code.visualstudio.com/docs/remote/wsl. However, I just went to the terminal and typed "WSL" and selected "WSL: Open folder in WSL". 
+If you want to use VSCode, you need to tunnel into the WSL environment. This link has a more elegant method that I've never tried: https://code.visualstudio.com/docs/remote/wsl. However, I just went to the search bar in VSCode, typed "WSL", and selected "WSL: Open folder in WSL". 
