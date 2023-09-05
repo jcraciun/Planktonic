@@ -118,18 +118,18 @@ def validate(model, validloader, criterion, include_metadata):
 
 def test(model, save_file_path, testloader, classes, save_plot_path, include_metadata=False):
     """
-    Tests given model from save_file_path. Prints confusion matrix, Sklearn classification report, and balanced accuracy score. 
+    Tests given model from save_file_path. Saves confusion matrix, Sklearn classification report, and balanced accuracy score to proper folders. 
 
     Input:
         model 
         save_file_path -> path towards desired model 
         testloader (custom Torch DataLoader)
         classes (list) -> list of strings that include the classes in label order
+        save_plot_path -> path to .png of results 
         include_metadata (bool)
 
     Output: 
-        epoch_loss (int),
-        epoch_acc (int)
+        None
 
     Hard-coded hyperparameters: 
         None
@@ -221,15 +221,13 @@ def forward_infer(model, image_directory_path, dataloader, classes, include_meta
 
     Input:
         model 
-        save_file_path -> path towards desired model 
-        image_directory_path -> path to base directory where images should be sorted 
+        image_directory_path -> path to sort images  
         dataloader (custom Torch DataLoader)
         classes (list) -> list of strings that include the classes in label order
         include_metadata (bool)
 
     Output: 
-        epoch_loss (int),
-        epoch_acc (int)
+        None
 
     Hard-coded hyperparameters: 
         None
@@ -242,8 +240,6 @@ def forward_infer(model, image_directory_path, dataloader, classes, include_meta
         print("Applying predicted labels to images.")
         for images, _, metadata_batch, paths in tqdm(dataloader):
             images = images.to("cuda")
-            # REMOVE THE LABELS 
-            #labels = labels.to("cuda")
             if include_metadata:
                 metadata_batch = metadata_batch.to("cuda")
                 metadata_batch = metadata_batch.float()
@@ -251,13 +247,15 @@ def forward_infer(model, image_directory_path, dataloader, classes, include_meta
             else:
                 outputs = model(images)
             output = (torch.max(torch.exp(outputs), 1)[1]).data.cpu().numpy()
-            #print("Placing images in predicted class directories.")
+            # copy the images into the proper folder 
             for i in range(len(output)):
                 source_file = paths[i]
                 destination_directory = image_directory_path + '/' + classes[output[i]]
+                # check if directory exists 
                 if (os.path.exists(destination_directory)):
                     shutil.copy(source_file, destination_directory)
                 else:
+                    # create new one otherwise then copy image over
                     print("Directory not found. Creating one for:", classes[output[i]])
                     os.makedirs(destination_directory)
                     shutil.copy(source_file, destination_directory)

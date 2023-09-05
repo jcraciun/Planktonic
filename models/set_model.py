@@ -1,6 +1,13 @@
 """
 Majority of code written by André Pacheco (pacheco.comp@gmail.com). 
 https://github.com/lmlima/BRACIS2022-Exploring-Advances-for-SLD/tree/main
+
+Loads the proper pre-trained model given the arguments. 
+If no custom image tranform is passed though, will default to the numbers the model was pretrained on.
+
+Output: 
+    - model 
+    - model_transforms --> to be used to transform the image later on in the main() routine 
 """
 
 from models import VIT

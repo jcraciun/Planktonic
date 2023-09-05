@@ -1,12 +1,14 @@
 """
 Majority of code written by André Pacheco (pacheco.comp@gmail.com). 
 https://github.com/lmlima/BRACIS2022-Exploring-Advances-for-SLD/tree/main
+
+NOTE: Custom collate function is commented out, as it does not work with the current metadata implementation. 
+If you make edits and the metadata is sorted across columns of the matrix instead of rows, uncomment to fix this issue.  
+
 """
 
 
-import torch
 import torchvision.transforms as transforms
-from sklearn import preprocessing
 from PIL import Image
 import os 
 from torch.utils import data
@@ -29,7 +31,7 @@ class MyDataset (data.Dataset):
         imgs_path[x]'s label must take place on labels[x].
 
         Parameters:
-        :param imgs_path (list): a list of string containing the image paths
+        :param image_paths (list): a list of string containing the image paths
         :param labels (list) a list of labels for each image
         :param meta_data (list): a list of meta-data regarding each image. If None, there is no information.
         Defaul is None.
@@ -88,46 +90,80 @@ class MyDataset (data.Dataset):
 
 
 def split_and_load(yaml_args, transforms, label_encoder = None, metadata_stats_dicts = None):
+    """
+    Splits the data into train-test-validate if relevant. 
+    """
     if yaml_args["run_type"] == "forward_infer":
+        # no need for split, requires metadata information from training to impute NaNs
         return get_data_loader(yaml_args, transforms, metadata_stats_dicts = metadata_stats_dicts)
+    # requires label encoder
     return get_data_loader(yaml_args, transforms, label_encoder = label_encoder)
 
 
 def get_image_paths_labels(base_path, label_encoder = None, forward_infer = False):
+    """
+    Walks though the base directory and returns the image paths and labels for each file with valid ending. 
+    """
     image_paths = []
     labels = []
     for root, _, files in os.walk(base_path):
         for file in files:
             if file.lower().endswith(('.png', '.jpg', '.jpeg')):
                 image_paths.append(os.path.join(root, file))
+                # label is the name of the folder containing the image 
                 labels.append(root.split("/")[-1])
     
     if forward_infer:
+        # no labels in forward inference
         return image_paths
     
+    # encode labels given encoder
     labels = label_encoder.transform(labels)
     return image_paths, labels
 
 
 def get_image_metadata(image_paths, yaml_args, meta_stats_dicts = None):
+    """
+    Returns image metadata. 
+
+    Input:
+        image_paths (list) -> paths to images  
+        yaml_args
+        meta_stats_dicts (bool) -> None if not forward-inference. Otherwise, (dict) used to pull metadata columns in proper order given keys
+
+    Output: 
+        image_meta (list)
+
+    Hard-coded hyperparameters: 
+        None
+    """
     image_col = yaml_args["meta_image_name_column"]
     # if metadata statistics exist (forward inference)
     if meta_stats_dicts is None:
+        # use yaml args to get the proper columns 
         meta_cols = yaml_args["meta_columns"]
     else:
+        # pull column names from the keys of the inputted dictionary 
         meta_cols = list(meta_stats_dicts["metadata_mean_dict"].keys())
+    
     meta_data = pd.read_csv(yaml_args["metadata_csv"])
     metadata_array = meta_data[meta_cols].values
+    # number of metadata observations 
     length_of_meta_obs = len(metadata_array[0])
     nan_counter = 0
     image_meta = []
     for idx, image in enumerate(image_paths):
         try:
-            image_name = image.split('/')[-1]#.replace(".png", "")
+            # get the image name with file ending (no file ending commented out)
+            image_name = image.split('/')[-1]#.replace(".jpg", "")
+            #image_name = image_name.replace(".png", "")
+            #image_name = image_name.replace(".jpeg", "")
+            # find the values in the csv 
             values = meta_data[meta_data[image_col] == image_name][meta_cols].values[0]
             image_meta.append(values.tolist())
 
         except IndexError:
+            # metadata for image not found in csv 
             print(image_name, "not present in metadata file:", image)
             nan_counter += 1
             image_meta.append([np.nan] * length_of_meta_obs)
@@ -138,10 +174,17 @@ def get_image_metadata(image_paths, yaml_args, meta_stats_dicts = None):
 
 
 def metadata_impute_and_normalize(df, mean_array, std_array):
+    """
+    Replaces all nans in given df with mean values and uses mean and std arrays to normalize the data. 
+    Alters "metadata" column of given df. 
+    """
     metadata_array = [np.array(meta) for meta in df["metadata"]]
     for i, meta in enumerate(metadata_array):
+        # identify nans 
         nan_indices = np.isnan(meta)
+        # replace with mean 
         metadata_array[i][nan_indices] = mean_array[nan_indices]
+        # standardize 
         norm_meta = (meta - mean_array) / std_array
         metadata_array[i] = norm_meta
     df["metadata"] = list(metadata_array)
@@ -150,28 +193,9 @@ def metadata_impute_and_normalize(df, mean_array, std_array):
 
 def get_data_loader (yaml_args, transform, label_encoder = None, metadata_stats_dicts = None):
     """
-    This function gets a list og images path, their labels and meta-data (if applicable) and returns a DataLoader
-    for these files. You also can set some transformations using torchvision.transforms in order to perform data
-    augmentation. Lastly, params is a dictionary that you can set the following parameters:
-    batch_size (int): the batch size for the dataset. If it's not informed the default is 30
-    shuf (bool): set it true if wanna shuffe the dataset. If it's not informed the default is True
-    num_workers (int): the number thread in CPU to load the dataset. If it's not informed the default is 0 (which
-
-
-    :param imgs_path (list): a list of string containing the images path
-    :param labels (list): a list of labels for each image
-    :param meta_data (list, optional): a list of meta-data regarding each image. If it's None, it means there's
-    no meta-data. Default is None
-    :param transform (torchvision.transforms, optional): use the torchvision.transforms.compose to perform the data
-    augmentation for the dataset. Alternatively, you can use the jedy.pytorch.utils.augmentation to perform the
-    augmentation. If it's None, none augmentation will be perform. Default is None
-    :param batch_size (int): the batch size. If the key is not informed or params = None, the default value will be 30
-    :param shuf (bool): if you'd like to shuffle the dataset. If the key is not informed or params = None, the default
-    value will be True
-    :param num_workers (int): the number of threads to be used in CPU. If the key is not informed or params = None, the
-    default value will be  4
-    :param pin_memory (bool): set it to True to Pytorch preload the images on GPU. If the key is not informed or
-    params = None, the default value will be True
+    Creates a torch DataLoader given yaml file and transform. 
+    label_encoder is not None in event of train. 
+    meta_stats_dicts is not None in event of forward-inference.
     :return (torch.utils.data.DataLoader): a dataloader with the dataset and the chose params
     """
 
@@ -184,9 +208,10 @@ def get_data_loader (yaml_args, transform, label_encoder = None, metadata_stats_
             metadata_impute_and_normalize(full_data, np.array(list(metadata_stats_dicts["metadata_mean_dict"].values())),  np.array(list(metadata_stats_dicts["metadata_std_dict"].values())))
             dt = MyDataset(yaml_args, full_data["images"], meta_data=full_data["metadata"], transform=transform)
         else:
+            # no need for labels in forward-inference 
             full_data = pd.DataFrame({"images" : images})
             dt = MyDataset(yaml_args, full_data["images"], transform=transform)
-        
+        # no need for train-test-val split in this case either 
         return data.DataLoader(dataset=dt, batch_size=yaml_args["batch_size"], shuffle=False, num_workers=yaml_args["num_workers"],
                                pin_memory=yaml_args["pin_memory"])
 
@@ -206,6 +231,7 @@ def get_data_loader (yaml_args, transform, label_encoder = None, metadata_stats_
     print("Length of validation dataset:", len(val_df))
     print("Length of test dataset:", len(test_df))
 
+    # reset indices to avoid indexing issues 
     train_df = train_df.reset_index()
     val_df = val_df.reset_index()
     test_df = test_df.reset_index()
@@ -217,10 +243,12 @@ def get_data_loader (yaml_args, transform, label_encoder = None, metadata_stats_
         rows_with_nan = train_metadata_array[has_nan]
         print(len(rows_with_nan), "rows from train set have nan values. Ignoring these rows in mean and std calculation.")
 
+        # calculate mean and std for given train set 
         train_metadata_mean = np.nanmean(train_metadata_array, axis=0)
         train_metadata_std = np.nanstd(train_metadata_array, axis=0)
         train_metadata_std[train_metadata_std == 0] = 1.0
 
+        # impute and normalize train, val, and test given those values 
         metadata_impute_and_normalize(train_df, train_metadata_mean, train_metadata_std)
         metadata_impute_and_normalize(test_df, train_metadata_mean, train_metadata_std)
         metadata_impute_and_normalize(val_df, train_metadata_mean, train_metadata_std)
@@ -228,10 +256,12 @@ def get_data_loader (yaml_args, transform, label_encoder = None, metadata_stats_
         train_dataset = MyDataset(yaml_args, train_df["images"], train_df["labels"], train_df["metadata"], transform)
         test_dataset = MyDataset(yaml_args, test_df["images"], test_df["labels"], test_df["metadata"], transform)
         val_dataset = MyDataset(yaml_args, val_df["images"], val_df["labels"], val_df["metadata"], transform)
+        # zip mean and std dict with colnames to preserve order and not inadvertently shuffle data in the future 
         mean_dict = dict(zip(yaml_args["meta_columns"], train_metadata_mean))
         std_dict = dict(zip(yaml_args["meta_columns"], train_metadata_std))
     
     else:
+        # no metadata, no imputation or normalization needed 
         train_dataset = MyDataset(yaml_args, train_df["images"], train_df["labels"], None, transform)
         test_dataset = MyDataset(yaml_args, test_df["images"], test_df["labels"], None, transform)
         val_dataset = MyDataset(yaml_args, val_df["images"], val_df["labels"], None, transform)
@@ -256,6 +286,7 @@ def get_data_loader (yaml_args, transform, label_encoder = None, metadata_stats_
         return train, test, val, mean_dict, std_dict
 
     return train, test, val
+
 """
 def custom_collate_fn(batch):
     #Ensures that the metadata is properly stacked and in order 

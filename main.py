@@ -14,29 +14,33 @@ import shutil
 import ast
 import sys
 from run_types import train, test, forward_infer, validate
-import contextlib
 
 
 def main():
     """
+    Sets .yml configs and calls functions from run_types.py as needed. 
     Hard-coded hyperparameters: 
         optimizer -> CrossEntropyLoss()
         loss -> torch.optim.Adam()
 
     """
 
+    # resume training 
     if filename == "args.yml":
         yaml_args["run_type"] = "resume_training"
         path = yaml_args["trial_path"]
         epoch_path = os.path.join(path, "checkpoints")
         epoch_files = [file for file in os.listdir(epoch_path) if file.startswith("epoch-")]
+        # find last saved epoch 
         if epoch_files:
             last_epoch_file = max(epoch_files, key=lambda x: int(x.split("-")[1].split(".")[0]))
             print(f"The filename of the last epoch is: {last_epoch_file}")
             print("Loading saved model parameters.")
             checkpoint = torch.load(os.path.join(epoch_path, last_epoch_file))
+            # if the final logged epoch is the same as the max_epoch of the trial
             if checkpoint['epoch'] == yaml_args["num_epochs"]:
                 raise Exception("Trial reached max epochs specified in .yml file. Start a new trial.")
+            # load the model dictionary 
             print("Loading checkpoint dictionary:", checkpoint['init_args'])
             classes = checkpoint["label_encoder"].classes_
             num_classes = len(classes)
@@ -46,14 +50,15 @@ def main():
             image_stds = checkpoint["init_args"]["transforms_std"]
             print("Setting model and transforms.")
             model, img_transforms = set_model(**checkpoint['init_args']) 
+            # dump new arguments in a .yaml file 
             with open(filename, "w") as yaml_file:
                 yaml.dump(yaml_args, yaml_file)
-
+            # create new files to avoid overriting initial train session 
             shutil.copy(filename, os.path.join(path, "logs", "resume_train_args.yml"))
             shutil.move(output_file_name, os.path.join(path, "logs", "resume_train_output.txt"))
-            # create new csv for loss_and_acc
 
         else:
+            # args.yml doesn't correspond to folder in directory 
             raise Exception("No epoch files found in the folder for the current args.yml.")
 
 
@@ -93,6 +98,7 @@ def main():
 
     if yaml_args["run_type"] == "train":
         if yaml_args["include_metadata"]:
+            # set proper comb_methods 
             if yaml_args["comb_method"] == "metablock":
                 config = ast.literal_eval(yaml_args["comb_config"])
                 comb_config = (config[0], len(yaml_args["meta_columns"]), config[1]) 
@@ -102,6 +108,7 @@ def main():
             elif yaml_args["comb_method"] == "concat":
                 comb_config = (len(yaml_args["meta_columns"]))
         else:
+            # no metadata, clear metadata-related arguments 
             print("Selected to not include metadata. Changing any comb_config and comb_method input to None.")
             comb_config = None
             yaml_args["comb_method"] = None
@@ -110,21 +117,25 @@ def main():
       # create folders for trial 
         path = os.path.join(os.getcwd(), "trials", yaml_args["model"] + "_" + str(yaml_args["comb_method"]) + "_" + str(yaml_args["trial_id"]))
         yaml_args["trial_path"] = path
-        # avoid overwriting existing trials 
+        # warn if overriding existing trials 
         if (os.path.exists(path)):
             print("The directory to save this model already exists. Overwriting old results at:", path)
         else:
             print("Making directories at:", path)
         
+        # dump cleaned arguments into yaml file for resume-training purposes 
         with open(filename, "w") as yaml_file:
             yaml.dump(yaml_args, yaml_file)
 
+        # make relevant directories 
         os.makedirs(path, exist_ok=True)
         os.makedirs(os.path.join(path, "checkpoints"), exist_ok=True)
         os.makedirs(os.path.join(path, "logs"), exist_ok=True)
         os.makedirs(os.path.join(path, "results"), exist_ok=True)
         logs_directory = os.path.join(path, "logs")
+        # copy the updated yaml file over 
         shutil.copy(filename, os.path.join(path, "logs", "args.yml"))
+        # move the output file into the proper folder 
         shutil.move(output_file_name, os.path.join(logs_directory, output_file_name))
 
         # model and transforms 
@@ -135,6 +146,7 @@ def main():
         print("Number of classes:", num_classes)
         print("Classes:", classes)
 
+        # image statistics 
         if yaml_args["image_norm_csv"] == 'None':
             image_means = None
             image_stds = None
@@ -148,13 +160,14 @@ def main():
         model, img_transforms = set_model(model_name = yaml_args["model"], num_class = num_classes, p_dropout = yaml_args["p_dropout"], 
                                                 comb_method = yaml_args["comb_method"], comb_config = comb_config, neurons_reducer_block = yaml_args["neurons_reducer_block"],
                                                 transforms_mean = image_means, transforms_std = image_stds)
-        print("Selected", yaml_args["comb_method"], "method with parameters", yaml_args["comb_config"])
+        print("Selected", yaml_args["comb_method"], "method with parameters", comb_config)
 
         start_epoch = 0
 
     results_directory = os.path.join(path, "results")
     path_to_save_epochs = os.path.join(path, "checkpoints")
     logs_directory = os.path.join(path, "logs")
+    # create txt files to dump losses and accuracies 
     train_loss_file = os.path.join(logs_directory, "train_losses.txt")
     valid_loss_file = os.path.join(logs_directory, "valid_losses.txt")
     train_acc_file = os.path.join(logs_directory, "train_acc.txt")
@@ -176,6 +189,7 @@ def main():
     num_epochs = yaml_args["num_epochs"]
 
     if yaml_args["run_type"] == "resume_training":
+        # load old optimizer and epoch starting point 
         optimizer.load_state_dict(checkpoint['optimizer'])
         start_epoch = checkpoint['epoch']
 
@@ -203,6 +217,7 @@ def main():
         valid_loss.append(valid_epoch_loss)
         train_acc.append(train_epoch_acc)
         valid_acc.append(valid_epoch_acc)
+        # write new losses and accuracies into txt file 
         with open(train_loss_file, "a") as train_loss_f:
             train_loss_f.write(f"Epoch {epoch + 1}: Training Loss: {train_epoch_loss:.3f}\n")
         with open(valid_loss_file, "a") as valid_loss_f:
@@ -245,12 +260,15 @@ def main():
             print("Epoch", epoch+1, "is the new best model. Saving to file.")
             torch.save(state, os.path.join(path_to_save_epochs, 'epoch-{}.pth'.format(epoch+1)))
 
+    # test 
+    # select last saved model 
     best_epoch_path = os.path.join(path_to_save_epochs, 'epoch-{}.pth'.format(best_epoch))
     print("Selected model for testing from:", best_epoch_path)
     train_losses = []
     valid_losses = []
     train_accs = []
     valid_accs = []
+    # open loss and accuracy files to plot data 
     with open(train_loss_file, "r") as train_loss_f:
         train_losses = [float(line.split(":")[-1]) for line in train_loss_f.readlines()]
     with open(valid_loss_file, "r") as valid_loss_f:
@@ -261,12 +279,14 @@ def main():
         valid_accs = [float(line.split(":")[-1]) for line in valid_acc_f.readlines()]
 
     save_acc_loss_plots(train_losses, valid_losses, train_accs, valid_accs, logs_directory)
+    # load checkpoint and image transforms 
     checkpoint = torch.load(best_epoch_path)
     model, img_transforms = set_model(**checkpoint['init_args']) 
     test(model, best_epoch_path, test_dataloader, le.classes_, results_directory, yaml_args["include_metadata"])
                
 
 class Tee:
+    # class to allow all printed output to be written to an output.txt file 
     def __init__(self, name, mode='w'):
         self.file = open(name, mode)
         self.stdout = sys.stdout

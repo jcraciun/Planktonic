@@ -6,6 +6,11 @@ import matplotlib.pyplot as plt
 import pandas as pd 
 
 class PadCenterCrop(object):
+    """
+    Modified code from https://discuss.pytorch.org/t/torchvision-transforms-set-fillcolor-for-centercrop/98098
+    Fill = 255 sets the colors to be white, however, if you want to speckle, you can modify this code to select from a range of values for fill. 
+    """
+
     def __init__(self, size, pad_if_needed=True, fill=255, padding_mode='constant'):
         if isinstance(size, (int, float)):
             self.size = (int(size), int(size))
@@ -74,17 +79,34 @@ class EarlyStopping:
 
 
 def save_acc_loss_plots(train_loss, valid_loss, train_acc, valid_acc, logs_directory):
+    """
+    Creates a plot with the training loss and accuracies and saves it in the logs directory as a png. 
+
+    Input:
+        train_loss (list)
+        valid_loss (list)
+        train_acc (list)
+        valid_acc (list)
+        logs_directory -> path to save plot
+
+    Output: 
+        None
+
+    Hard-coded hyperparameters: 
+        Figure size/placement of subplots. 
+    """
     loss_df = pd.DataFrame({
         'Train Loss': train_loss,
         'Validation Loss': valid_loss,
         'Train Accuracy': train_acc,
         'Validation Accuracy': valid_acc
     })
+    # change the directory of the environment to save the plot easily 
     os.chdir(logs_directory)
     loss_df.to_csv("loss_and_acc.csv")
     plt.figure(figsize=(12, 6))
 
-    # Loss Plot
+    # Loss plot
     plt.subplot(121)
     plt.title("Train Loss vs Validation Loss")
     plt.plot(range(1, len(loss_df) + 1), train_loss, label="Train Loss", color='blue')
@@ -93,6 +115,7 @@ def save_acc_loss_plots(train_loss, valid_loss, train_acc, valid_acc, logs_direc
     plt.ylabel("Loss")
     plt.legend()
 
+    # Accuracy plot 
     plt.subplot(122)
     plt.title("Train Accuracy vs Validation Accuracy")
     plt.plot(range(1, len(loss_df) + 1), train_acc, label="Train Accuracy", color='green')
