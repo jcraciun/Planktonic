@@ -156,6 +156,10 @@ Start here to activate WSL environment on your computer: https://learn.microsoft
 Install Python by running the following commands: 
 
 ```
+sudo apt-get update
+```
+
+```
 sudo apt install python3 python3-pip ipython3
 ```
 
